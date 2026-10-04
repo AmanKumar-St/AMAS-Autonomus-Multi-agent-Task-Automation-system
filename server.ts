@@ -130,9 +130,11 @@ Provide a concise 3-sentence architectural review:
 import json, sys
 from autonomous_multi_agent_system import MultiAgentOrchestrator, ToolRegistry, TaskStatus
 
+user_query = json.loads(sys.argv[1])
+sim_target = sys.argv[2] if len(sys.argv) > 2 else ""
+
 o = MultiAgentOrchestrator()
-ctx = o.create_workflow("""${userQuery.replace(/"/g, '\\"')}""")
-sim_target = "${simulateFailure ? (failureTaskTarget || 'task_2_detect') : ''}"
+ctx = o.create_workflow(user_query)
 try:
     o.execute_workflow(ctx.workflow_id, simulate_retry_on_task_id=sim_target if sim_target else None)
 except Exception as e:
@@ -192,7 +194,9 @@ output = {
     ]
 }
 print(json.dumps(output, default=str))
-`
+`,
+    JSON.stringify(userQuery),
+    simulateFailure ? (failureTaskTarget || 'task_2_detect') : ''
   ]);
 
   let stdout = "";
@@ -205,11 +209,45 @@ print(json.dumps(output, default=str))
     stderr += chunk.toString();
   });
 
-  pyProcess.on("close", (code) => {
+  pyProcess.on("close", async (code) => {
     try {
       if (stdout.trim()) {
         const parsed = JSON.parse(stdout.trim());
         parsed.aiInsights = aiInsights;
+
+        // If Gemini is available and we retrieved live web facts, attempt smart factual enrichment with strict fallback
+        if (ai && parsed.shared_blackboard?.latest_computation && parsed.shared_blackboard?.live_facts) {
+          const comp = parsed.shared_blackboard.latest_computation;
+          const facts = parsed.shared_blackboard.live_facts as Array<{ title?: string; snippet?: string; source?: string }>;
+          
+          if (comp.query_type && comp.query_type !== "financial_risk_analysis" && comp.query_type !== "anomaly_detection") {
+            try {
+              const snippets = facts.slice(0, 5).map(f => `- [${f.source || 'Wire'}] ${f.title}: ${f.snippet || ''}`).join("\n");
+              const enrichPrompt = `You are the Synthesis & Verification Agent in an Autonomous Multi-Agent AI System.
+The user requested: "${userQuery}".
+The Research Agent retrieved these live factual news & reference articles:
+${snippets}
+
+Write an authoritative, factual, 3-paragraph executive summary directly answering the user's question with exact figures, dates, names, metrics, and outcomes. Enforce zero-hallucination: only state facts corroborated by the articles.`;
+
+              const enrichPromise = ai.models.generateContent({
+                model: "gemini-3.8-flash",
+                contents: enrichPrompt
+              });
+
+              // 5-second race timeout so user request never hangs if Gemini spikes
+              const timeoutPromise = new Promise<null>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000));
+              const enrichRes = await Promise.race([enrichPromise, timeoutPromise]) as any;
+
+              if (enrichRes && enrichRes.text) {
+                parsed.shared_blackboard.latest_computation.summary = enrichRes.text.trim();
+              }
+            } catch (err: any) {
+              console.log("Gemini synthesis skipped or unavailable, using deterministic Python synthesis:", err?.message);
+            }
+          }
+        }
+
         res.json(parsed);
       } else {
         res.status(500).json({ error: "Execution returned empty output", stderr });

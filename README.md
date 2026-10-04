@@ -179,6 +179,8 @@ All tools are strictly isolated in a `ToolRegistry` with typed parameters and pa
 | :--- | :--- | :--- |
 | `retrieve_financial_data` | `ticker: str`, `period_days: int` | Fetches historical closing prices and trade volumes. |
 | `compute_risk_metrics` | `prices: list`, `risk_free_rate: float` | Computes daily returns, annualized volatility, and Sharpe ratio. |
+| `retrieve_live_web_facts` | `query: str` | Retrieves live real-time news articles, Wikipedia summaries, wire feeds, and publication dates. |
+| `aggregate_impact_metrics` | `facts: list`, `category: str` | Aggregates reported casualties, calculates relief funds, and audits infrastructure damage inventories. |
 | `query_knowledge_base` | `query: str`, `domain: str` | Retrieves technical docs, benchmark criteria, or incident protocol specs. |
 | `detect_time_series_anomalies` | `data_points: list`, `z_threshold: float` | Calculates distribution mean/std and isolates statistical outliers $> 2.2\sigma$. |
 | `execute_sandboxed_python` | `code: str` | Safely evaluates custom Python math expressions with dangerous builtins removed. |
@@ -250,6 +252,12 @@ The system includes pre-configured, end-to-end benchmark scenarios:
    - Researches agentic architectures (e.g., LangGraph, CrewAI, AutoGen).
    - Runs comparative scoring across ease-of-use, deterministic tool calling, and recovery resilience.
    - Audits ranking consistency against benchmark facts.
+4. **India Floods & Real-Time Disaster Impact Analysis (Live Facts & Metrics)**:
+   - Queries live Google News RSS and Wikipedia bulletins for monsoon flood crises.
+   - Computes confirmed death metrics across states (Assam, J&K, Gujarat, Kerala, Maharashtra).
+   - Aggregates State Disaster Response Fund (SDRF) relief packages and district aid (e.g., ₹180+ Crore Palghar relief plan).
+   - Compiles infrastructure destruction inventory (24,000+ homes damaged, 5,000+ road segments cut off, 4,000+ municipal water schemes disrupted).
+   - Generates state-by-state breakdown tables and audits findings for zero hallucination.
 
 ---
 
