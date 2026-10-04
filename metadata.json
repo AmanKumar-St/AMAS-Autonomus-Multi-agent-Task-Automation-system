@@ -1,0 +1,6 @@
+{
+  "name": "Autonomous Multi-Agent AI Workflow & Task Automation System",
+  "description": "Multi-agent architecture with planning, research, execution, and verification agents, controlled tools, failure recovery, and evaluation suite.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
