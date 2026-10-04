@@ -304,12 +304,16 @@ print(json.dumps({
 // ---------------------------------------------------------------------------
 app.get("/api/download/python", (req: Request, res: Response) => {
   const filePath = path.join(process.cwd(), "autonomous_multi_agent_system.py");
-  res.download(filePath, "autonomous_multi_agent_system.py");
+  res.setHeader("Content-Disposition", 'attachment; filename="autonomous_multi_agent_system.py"');
+  res.setHeader("Content-Type", "text/x-python; charset=utf-8");
+  res.sendFile(filePath);
 });
 
 app.get("/api/download/notebook", (req: Request, res: Response) => {
   const filePath = path.join(process.cwd(), "autonomous_multi_agent_system.ipynb");
-  res.download(filePath, "autonomous_multi_agent_system.ipynb");
+  res.setHeader("Content-Disposition", 'attachment; filename="autonomous_multi_agent_system.ipynb"');
+  res.setHeader("Content-Type", "application/x-ipynb+json; charset=utf-8");
+  res.sendFile(filePath);
 });
 
 app.get("/api/code/python", (req: Request, res: Response) => {

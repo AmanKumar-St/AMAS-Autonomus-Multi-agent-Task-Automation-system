@@ -13,12 +13,15 @@ import {
   Sparkles,
   ExternalLink
 } from "lucide-react";
+import { downloadFile } from "../utils/download";
 
 export const SubmissionHub: React.FC = () => {
   const [activeFormat, setActiveFormat] = useState<"py" | "ipynb">("py");
   const [pythonCode, setPythonCode] = useState<string>("");
   const [notebookJson, setNotebookJson] = useState<any | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+  const [downloadedPy, setDownloadedPy] = useState<boolean>(false);
+  const [downloadedNb, setDownloadedNb] = useState<boolean>(false);
   const [kernelRunning, setKernelRunning] = useState<boolean>(false);
   const [kernelOutput, setKernelOutput] = useState<string | null>(null);
   const [kernelDuration, setKernelDuration] = useState<number | null>(null);
@@ -36,6 +39,50 @@ export const SubmissionHub: React.FC = () => {
       .then((json) => setNotebookJson(json))
       .catch((err) => console.error("Failed to load notebook json:", err));
   }, []);
+
+  const handleDownloadPy = async () => {
+    let success = false;
+    if (pythonCode) {
+      success = await downloadFile(
+        "autonomous_multi_agent_system.py",
+        "text/x-python;charset=utf-8",
+        pythonCode
+      );
+    } else {
+      success = await downloadFile(
+        "autonomous_multi_agent_system.py",
+        "text/x-python;charset=utf-8",
+        "/api/code/python",
+        true
+      );
+    }
+    if (success) {
+      setDownloadedPy(true);
+      setTimeout(() => setDownloadedPy(false), 2500);
+    }
+  };
+
+  const handleDownloadNb = async () => {
+    let success = false;
+    if (notebookJson) {
+      success = await downloadFile(
+        "autonomous_multi_agent_system.ipynb",
+        "application/x-ipynb+json;charset=utf-8",
+        notebookJson
+      );
+    } else {
+      success = await downloadFile(
+        "autonomous_multi_agent_system.ipynb",
+        "application/x-ipynb+json;charset=utf-8",
+        "/api/code/notebook",
+        true
+      );
+    }
+    if (success) {
+      setDownloadedNb(true);
+      setTimeout(() => setDownloadedNb(false), 2500);
+    }
+  };
 
   const handleCopy = () => {
     if (activeFormat === "py") {
@@ -83,31 +130,49 @@ export const SubmissionHub: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <a
-              href="/api/download/python"
-              download="autonomous_multi_agent_system.py"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs shadow-xs transition-colors"
+            <button
+              onClick={handleDownloadPy}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs shadow-xs transition-colors cursor-pointer"
+              title="Download standalone Python script"
             >
-              <FileCode className="w-4 h-4 text-amber-300" />
-              <span>Download .py</span>
-              <Download className="w-3.5 h-3.5 ml-0.5 opacity-70" />
-            </a>
+              {downloadedPy ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span className="text-emerald-300">Saved .py!</span>
+                </>
+              ) : (
+                <>
+                  <FileCode className="w-4 h-4 text-amber-300" />
+                  <span>Download .py</span>
+                  <Download className="w-3.5 h-3.5 ml-0.5 opacity-70" />
+                </>
+              )}
+            </button>
 
-            <a
-              href="/api/download/notebook"
-              download="autonomous_multi_agent_system.ipynb"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium text-xs shadow-xs transition-colors"
+            <button
+              onClick={handleDownloadNb}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium text-xs shadow-xs transition-colors cursor-pointer"
+              title="Download executed Jupyter Notebook"
             >
-              <BookOpen className="w-4 h-4" />
-              <span>Download .ipynb</span>
-              <Download className="w-3.5 h-3.5 ml-0.5 opacity-70" />
-            </a>
+              {downloadedNb ? (
+                <>
+                  <Check className="w-4 h-4 text-white" />
+                  <span className="text-white font-bold">Saved .ipynb!</span>
+                </>
+              ) : (
+                <>
+                  <BookOpen className="w-4 h-4" />
+                  <span>Download .ipynb</span>
+                  <Download className="w-3.5 h-3.5 ml-0.5 opacity-70" />
+                </>
+              )}
+            </button>
           </div>
         </div>
 
         {/* 2 Big Download Info Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileCode className="w-4 h-4 text-indigo-600" />
@@ -120,12 +185,18 @@ export const SubmissionHub: React.FC = () => {
             <p className="text-xs text-slate-600">
               Clean modular Python script. Contains all 4 agents, the blackboard memory system, 5 controlled tools, and autonomous retry logic.
             </p>
-            <div className="text-[11px] font-mono bg-slate-900 text-slate-200 p-2 rounded-lg">
-              $ python3 autonomous_multi_agent_system.py
+            <div className="text-[11px] font-mono bg-slate-900 text-slate-200 p-2 rounded-lg flex items-center justify-between">
+              <span>$ python3 autonomous_multi_agent_system.py</span>
+              <button
+                onClick={handleDownloadPy}
+                className="text-[10px] text-amber-300 hover:text-amber-200 font-bold ml-2 underline cursor-pointer"
+              >
+                Save File
+              </button>
             </div>
           </div>
 
-          <div className="p-4 rounded-xl border border-amber-200/80 bg-amber-50/40 space-y-2">
+          <div className="p-4 rounded-xl border border-amber-200/80 bg-amber-50/40 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-amber-600" />
@@ -138,8 +209,14 @@ export const SubmissionHub: React.FC = () => {
             <p className="text-xs text-slate-600">
               Full interactive notebook with step-by-step documentation, architecture diagrams, executed cell outputs, and benchmark tables.
             </p>
-            <div className="text-[11px] text-amber-900 font-medium">
-              ✓ Ready for Kaggle, Google Colab, or local JupyterLab
+            <div className="text-[11px] text-amber-900 font-medium flex items-center justify-between bg-amber-100/60 p-2 rounded-lg border border-amber-200/60">
+              <span>✓ Ready for Google Colab, Kaggle, or JupyterLab</span>
+              <button
+                onClick={handleDownloadNb}
+                className="text-[10px] text-amber-900 hover:text-amber-950 font-bold ml-2 underline cursor-pointer"
+              >
+                Save .ipynb
+              </button>
             </div>
           </div>
         </div>

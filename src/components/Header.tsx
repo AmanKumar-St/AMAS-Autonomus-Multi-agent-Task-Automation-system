@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { 
   Cpu, 
   Sparkles, 
@@ -9,9 +9,11 @@ import {
   Users,
   CheckCircle2,
   Play,
-  Award
+  Award,
+  Check
 } from "lucide-react";
 import { SystemInfo } from "../types";
+import { downloadFile } from "../utils/download";
 
 interface HeaderProps {
   systemInfo: SystemInfo | null;
@@ -20,6 +22,34 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
+  const [downloadedPy, setDownloadedPy] = useState(false);
+  const [downloadedNb, setDownloadedNb] = useState(false);
+
+  const handleDownloadPy = async () => {
+    const success = await downloadFile(
+      "autonomous_multi_agent_system.py",
+      "text/x-python;charset=utf-8",
+      "/api/code/python",
+      true
+    );
+    if (success) {
+      setDownloadedPy(true);
+      setTimeout(() => setDownloadedPy(false), 2500);
+    }
+  };
+
+  const handleDownloadNb = async () => {
+    const success = await downloadFile(
+      "autonomous_multi_agent_system.ipynb",
+      "application/x-ipynb+json;charset=utf-8",
+      "/api/code/notebook",
+      true
+    );
+    if (success) {
+      setDownloadedNb(true);
+      setTimeout(() => setDownloadedNb(false), 2500);
+    }
+  };
   return (
     <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -59,27 +89,43 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
 
             {/* Quick Action Download Buttons */}
             <div className="flex items-center gap-2 ml-auto md:ml-2">
-              <a
-                href="/api/download/python"
-                download="autonomous_multi_agent_system.py"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium shadow-xs transition-colors"
+              <button
+                onClick={handleDownloadPy}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium shadow-xs transition-colors cursor-pointer"
                 title="Download standalone Python script for submission"
               >
-                <FileCode className="w-3.5 h-3.5 text-amber-300" />
-                <span>Download .py</span>
-                <Download className="w-3 h-3 ml-0.5 opacity-70" />
-              </a>
+                {downloadedPy ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-300">Saved .py!</span>
+                  </>
+                ) : (
+                  <>
+                    <FileCode className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Download .py</span>
+                    <Download className="w-3 h-3 ml-0.5 opacity-70" />
+                  </>
+                )}
+              </button>
 
-              <a
-                href="/api/download/notebook"
-                download="autonomous_multi_agent_system.ipynb"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-xs transition-colors"
+              <button
+                onClick={handleDownloadNb}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-xs transition-colors cursor-pointer"
                 title="Download executed Jupyter Notebook for submission"
               >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Download .ipynb</span>
-                <Download className="w-3 h-3 ml-0.5 opacity-70" />
-              </a>
+                {downloadedNb ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-white" />
+                    <span className="text-white font-bold">Saved .ipynb!</span>
+                  </>
+                ) : (
+                  <>
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Download .ipynb</span>
+                    <Download className="w-3 h-3 ml-0.5 opacity-70" />
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
