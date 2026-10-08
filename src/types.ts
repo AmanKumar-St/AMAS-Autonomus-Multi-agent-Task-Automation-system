@@ -2,8 +2,10 @@ export type AgentRole =
   | "Orchestrator"
   | "PlanningAgent"
   | "ResearchAgent"
+  | "AnalysisAgent"
   | "ExecutionAgent"
-  | "VerificationAgent";
+  | "VerificationAgent"
+  | "RecoveryAgent";
 
 export type TaskStatus = 
   | "PENDING"
@@ -16,6 +18,7 @@ export type TaskStatus =
 export interface VerificationData {
   is_valid: boolean;
   score: number;
+  status?: "VERIFIED" | "FAILED" | "PARTIAL" | "REQUIRES_REVIEW";
   critique: string;
   suggested_fix?: string | null;
   checks_passed: string[];
@@ -49,11 +52,14 @@ export interface AgentMessageData {
 export interface ToolCallData {
   call_id: string;
   tool_name: string;
+  source?: "praisonai" | "langchain" | "mcp" | "official_sdk" | "custom" | string;
+  category?: string;
   arguments: Record<string, any>;
   output: any;
   duration_ms: number;
   success: boolean;
   error?: string | null;
+  citations?: Array<{ title: string; url: string }>;
 }
 
 export interface WorkflowResponse {
@@ -61,6 +67,19 @@ export interface WorkflowResponse {
   user_query: string;
   overall_status: string;
   duration_ms: number;
+  provider_used?: string;
+  model_used?: string;
+  metrics?: {
+    total_tasks: number;
+    completed_tasks: number;
+    failed_tasks: number;
+    completion_rate_pct: number;
+    average_verification_score_pct: number;
+    total_retries_healed: number;
+    duration_ms: number;
+    provider_used?: string;
+    model_used?: string;
+  };
   shared_blackboard: Record<string, any>;
   tasks: TaskNodeData[];
   messages: AgentMessageData[];
@@ -68,16 +87,38 @@ export interface WorkflowResponse {
   aiInsights?: string | null;
 }
 
+export interface LLMProviderInfo {
+  id: string;
+  name: string;
+  is_configured: boolean;
+  default_model: string;
+  base_url: string;
+  is_default: boolean;
+  capabilities: {
+    streaming: boolean;
+    tool_calling: boolean;
+    structured_output: boolean;
+    vision: boolean;
+    reasoning: boolean;
+    max_context: number;
+  };
+  available_models: string[];
+}
+
 export interface SystemInfo {
   status: string;
+  engine: string;
   pythonAvailable: boolean;
-  pythonVersion: string;
-  hasGeminiKey: boolean;
-  geminiModel: string;
+  pythonCommand: string;
+  activeProvider: string;
+  activeModel: string;
+  configuredProviders: string[];
+  allProviders: LLMProviderInfo[];
   modulesCovered: string[];
   artifactsReady: {
     pythonScript: boolean;
     jupyterNotebook: boolean;
+    database: boolean;
   };
 }
 

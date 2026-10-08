@@ -1675,37 +1675,66 @@ INSPECTOR VERIFICATION:
                   if (!verif) return null;
                   return (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                      <div className={`flex items-center justify-between p-4 rounded-xl border ${
+                        verif.is_valid 
+                          ? "bg-emerald-50 border-emerald-200" 
+                          : (verif.score >= 0.5 ? "bg-amber-50 border-amber-200" : "bg-rose-50 border-rose-200")
+                      }`}>
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-emerald-600 text-white">
+                          <div className={`p-2 rounded-lg text-white ${
+                            verif.is_valid ? "bg-emerald-600" : (verif.score >= 0.5 ? "bg-amber-600" : "bg-rose-600")
+                          }`}>
                             <ShieldCheck className="w-5 h-5" />
                           </div>
                           <div>
-                            <div className="font-bold text-xs text-emerald-900">
-                              Quality Verified: {(verif.score * 100).toFixed(0)}% Score (Certified)
+                            <div className={`font-bold text-xs ${
+                              verif.is_valid ? "text-emerald-900" : (verif.score >= 0.5 ? "text-amber-900" : "text-rose-900")
+                            }`}>
+                              Audit Verdict: {verif.status || (verif.is_valid ? "VERIFIED" : "FAILED")} ({(verif.score * 100).toFixed(0)}% Score)
                             </div>
-                            <div className="text-xs text-emerald-700 mt-0.5">
+                            <div className={`text-xs mt-0.5 ${
+                              verif.is_valid ? "text-emerald-700" : (verif.score >= 0.5 ? "text-amber-700" : "text-rose-700")
+                            }`}>
                               {verif.critique}
                             </div>
                           </div>
                         </div>
-                        <span className="px-3 py-1 rounded-full bg-emerald-600 text-white font-bold text-xs shadow-xs">
-                          {verif.is_valid ? "APPROVED" : "REJECTED"}
+                        <span className={`px-3 py-1 rounded-full text-white font-bold text-xs shadow-xs ${
+                          verif.is_valid ? "bg-emerald-600" : (verif.score >= 0.5 ? "bg-amber-600" : "bg-rose-600")
+                        }`}>
+                          {verif.status || (verif.is_valid ? "VERIFIED" : "REJECTED")}
                         </span>
                       </div>
 
-                      {/* Checks List */}
-                      <div className="space-y-2">
-                        <h5 className="text-xs font-bold text-slate-900">Quality Checks Passed:</h5>
-                        <ul className="space-y-2">
-                          {verif.checks_passed.map((chk, cIdx) => (
-                            <li key={cIdx} className="flex items-center gap-2 text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                              <span>{chk}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      {/* Passed Checks List */}
+                      {verif.checks_passed && verif.checks_passed.length > 0 && (
+                        <div className="space-y-2">
+                          <h5 className="text-xs font-bold text-slate-900">Quality Checks Passed:</h5>
+                          <ul className="space-y-1.5">
+                            {verif.checks_passed.map((chk, cIdx) => (
+                              <li key={cIdx} className="flex items-center gap-2 text-xs text-slate-700 bg-emerald-50/40 p-2.5 rounded-lg border border-emerald-100">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>{chk}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Failed Checks List */}
+                      {verif.checks_failed && verif.checks_failed.length > 0 && (
+                        <div className="space-y-2">
+                          <h5 className="text-xs font-bold text-rose-900">Constraint Violations &amp; Failures:</h5>
+                          <ul className="space-y-1.5">
+                            {verif.checks_failed.map((chk, fIdx) => (
+                              <li key={fIdx} className="flex items-center gap-2 text-xs text-rose-700 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+                                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                                <span>{chk}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   );
                 })()
@@ -1730,10 +1759,20 @@ INSPECTOR VERIFICATION:
                     className="p-3.5 rounded-xl border border-slate-200 bg-white text-xs space-y-2 shadow-2xs"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-indigo-700 font-sans">
                           🛠️ {tc.tool_name.replace(/_/g, " ")}
                         </span>
+                        {tc.source && (
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-tight uppercase ${
+                            tc.source === 'praisonai' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                            tc.source === 'langchain' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                            tc.source === 'official_sdk' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                            'bg-violet-100 text-violet-800 border border-violet-200'
+                          }`}>
+                            Source: {tc.source.replace(/_/g, ' ')}
+                          </span>
+                        )}
                         <span className="text-[10px] text-slate-400 font-mono">
                           ({tc.duration_ms.toFixed(1)} ms)
                         </span>
@@ -1744,10 +1783,29 @@ INSPECTOR VERIFICATION:
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                          Failed (Recovered)
+                          Failed (Handled)
                         </span>
                       )}
                     </div>
+
+                    {tc.citations && tc.citations.length > 0 && (
+                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] space-y-1">
+                        <span className="font-bold text-[10px] text-slate-500 uppercase">Grounded Source Citations:</span>
+                        <div className="flex flex-wrap gap-2">
+                          {tc.citations.map((c, cIdx) => (
+                            <a
+                              key={cIdx}
+                              href={c.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1"
+                            >
+                              <span>{c.title}</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] pt-1">
                       <div>

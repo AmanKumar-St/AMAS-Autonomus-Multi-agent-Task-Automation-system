@@ -38,38 +38,45 @@ export const AgentArchitecture: React.FC = () => {
 
   const toolsList = [
     {
-      name: "retrieve_financial_data",
-      label: "📈 Stock Data Retriever",
+      name: "web_search",
+      label: "🌐 Live Web Search (PraisonAI)",
       agent: "Used by: Research Agent",
-      friendlyDesc: "Pulls 30 days of real closing stock prices, trading volumes, and company metadata safely without web vulnerabilities.",
+      friendlyDesc: "PraisonAI built-in DuckDuckGo web search engine retrieving live articles, news wires, and URLs.",
+      defaultArgs: { query: "PraisonAI multi agent autonomous system" }
+    },
+    {
+      name: "retrieve_financial_data",
+      label: "📈 Stock Data Retriever (Official API)",
+      agent: "Used by: Research Agent",
+      friendlyDesc: "Pulls authentic historical closing stock prices, trading volumes, and company metadata from Yahoo Finance.",
       defaultArgs: { ticker: "AAPL", period_days: 30 }
     },
     {
       name: "compute_risk_metrics",
-      label: "🧮 Risk & Volatility Calculator",
-      agent: "Used by: Execution Agent",
-      friendlyDesc: "Calculates annualized volatility and the Sharpe ratio (risk-adjusted return) using standard financial statistics.",
+      label: "🧮 Risk & Sharpe Calculator (AMAS Custom)",
+      agent: "Used by: Analysis Agent",
+      friendlyDesc: "Calculates annualized volatility and Sharpe ratio using standard financial statistics.",
       defaultArgs: { prices: [210.5, 212.0, 211.2, 215.8, 218.4, 221.0], risk_free_rate: 0.04 }
     },
     {
       name: "execute_sandboxed_python",
-      label: "🐍 Safe Python Runner",
+      label: "🐍 Safe Python Runner (PraisonAI)",
       agent: "Used by: Execution Agent",
-      friendlyDesc: "Executes Python code inside a secure isolated sandbox with strict barriers against unauthorized system calls.",
+      friendlyDesc: "Executes Python math inside an isolated AST sandbox with strict barriers against unauthorized system calls.",
       defaultArgs: { code: "data = [12, 19, 3, 5, 2, 3]\naverage = sum(data) / len(data)\nvariance = sum((x - average)**2 for x in data) / len(data)" }
     },
     {
       name: "query_knowledge_base",
-      label: "📚 Knowledge Base Search",
+      label: "📚 Wikipedia & Knowledge (LangChain)",
       agent: "Used by: Research Agent",
-      friendlyDesc: "Finds verified factual knowledge about multi-agent frameworks, architecture patterns, and reliability guidelines.",
-      defaultArgs: { query: "multi-agent frameworks", domain: "agent_frameworks" }
+      friendlyDesc: "Finds authoritative encyclopedic knowledge and definitions via LangChain Wikipedia integration.",
+      defaultArgs: { query: "Artificial intelligence agent" }
     },
     {
       name: "detect_time_series_anomalies",
-      label: "🚨 Outlier & Glitch Detector",
+      label: "🚨 Outlier & Glitch Detector (AMAS Custom)",
       agent: "Used by: Execution Agent",
-      friendlyDesc: "Scans sensor or numerical data streams using statistical standard deviations (Z-score) to find glitches and spikes.",
+      friendlyDesc: "Scans telemetry streams using statistical standard deviations (Z-score) to find glitches and spikes.",
       defaultArgs: { data_points: [100, 101, 99, 102, 185, 98, 101, 40], z_threshold: 2.0 }
     }
   ];

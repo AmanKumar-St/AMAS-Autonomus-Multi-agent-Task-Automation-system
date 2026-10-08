@@ -22,6 +22,12 @@ Core Architecture:
 
 from __future__ import annotations
 import sys
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 import time
 import math
 import json
