@@ -6,13 +6,42 @@
  * via an in-memory Blob URL.
  */
 
+/**
+ * Download a Blob directly
+ */
+export const downloadBlob = (blob: Blob, filename: string): boolean => {
+  try {
+    const blobUrl = window.URL.createObjectURL(blob);
+    const tempLink = document.createElement("a");
+    tempLink.href = blobUrl;
+    tempLink.download = filename;
+    tempLink.style.display = "none";
+    document.body.appendChild(tempLink);
+    tempLink.click();
+
+    setTimeout(() => {
+      document.body.removeChild(tempLink);
+      window.URL.revokeObjectURL(blobUrl);
+    }, 400);
+
+    return true;
+  } catch (err) {
+    console.error(`Error downloading blob ${filename}:`, err);
+    return false;
+  }
+};
+
 export const downloadFile = async (
   filename: string,
   mimeType: string,
-  dataOrUrl: string | object,
+  dataOrUrl: string | object | Blob,
   isUrl: boolean = false
 ): Promise<boolean> => {
   try {
+    if (dataOrUrl instanceof Blob) {
+      return downloadBlob(dataOrUrl, filename);
+    }
+
     let payload = "";
 
     if (isUrl) {

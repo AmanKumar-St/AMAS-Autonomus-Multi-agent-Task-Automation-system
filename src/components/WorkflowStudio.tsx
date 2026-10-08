@@ -29,9 +29,12 @@ import {
   Trophy,
   Film,
   Rocket,
-  Globe
+  Globe,
+  Download,
+  FileDown
 } from "lucide-react";
 import { WorkflowResponse, TaskNodeData, AgentRole } from "../types";
+import { exportReportToPDF, exportReportToDOCX } from "../utils/reportExport";
 
 interface WorkflowStudioProps {
   workflowData: WorkflowResponse | null;
@@ -114,11 +117,57 @@ export const WorkflowStudio: React.FC<WorkflowStudioProps> = ({
   const [activeInspectorTab, setActiveInspectorTab] = useState<"chat" | "notepad" | "safety" | "tools">("chat");
   const [showHowItWorks, setShowHowItWorks] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [downloadedPdf, setDownloadedPdf] = useState<boolean>(false);
+  const [downloadedDocx, setDownloadedDocx] = useState<boolean>(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
+  const [isDownloadingDocx, setIsDownloadingDocx] = useState<boolean>(false);
 
   const handleCopyResult = (textToCopy: string) => {
     navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!workflowData) return;
+    setIsDownloadingPdf(true);
+    try {
+      const success = await exportReportToPDF({
+        userQuery: workflowData.user_query,
+        durationMs: workflowData.duration_ms,
+        formattedText: getFormattedDeliverableText(),
+        workflowData
+      });
+      if (success) {
+        setDownloadedPdf(true);
+        setTimeout(() => setDownloadedPdf(false), 2500);
+      }
+    } catch (err) {
+      console.error("PDF export error:", err);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleDownloadDocx = async () => {
+    if (!workflowData) return;
+    setIsDownloadingDocx(true);
+    try {
+      const success = await exportReportToDOCX({
+        userQuery: workflowData.user_query,
+        durationMs: workflowData.duration_ms,
+        formattedText: getFormattedDeliverableText(),
+        workflowData
+      });
+      if (success) {
+        setDownloadedDocx(true);
+        setTimeout(() => setDownloadedDocx(false), 2500);
+      }
+    } catch (err) {
+      console.error("DOCX export error:", err);
+    } finally {
+      setIsDownloadingDocx(false);
+    }
   };
 
   const getFormattedDeliverableText = () => {
@@ -704,23 +753,63 @@ INSPECTOR VERIFICATION:
               </div>
             </div>
 
-            <button
-              onClick={() => handleCopyResult(getFormattedDeliverableText())}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors shadow-2xs self-start sm:self-center"
-              title="Copy final answer text"
-            >
-              {copied ? (
-                <>
-                  <CheckCheck className="w-4 h-4 text-emerald-600" />
-                  <span className="text-emerald-700 font-bold">Copied to Clipboard!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4 text-slate-500" />
-                  <span>Copy Complete Answer</span>
-                </>
-              )}
-            </button>
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+              <button
+                onClick={() => handleCopyResult(getFormattedDeliverableText())}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors shadow-2xs"
+                title="Copy final answer text"
+              >
+                {copied ? (
+                  <>
+                    <CheckCheck className="w-4 h-4 text-emerald-600" />
+                    <span className="text-emerald-700 font-bold">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 text-slate-500" />
+                    <span>Copy Complete Answer</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={handleDownloadPdf}
+                disabled={isDownloadingPdf}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-xs font-semibold text-rose-800 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                title="Download answer report as PDF"
+              >
+                {downloadedPdf ? (
+                  <>
+                    <Check className="w-4 h-4 text-rose-700" />
+                    <span className="font-bold">Downloaded PDF!</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className={`w-4 h-4 text-rose-600 ${isDownloadingPdf ? "animate-pulse" : ""}`} />
+                    <span>{isDownloadingPdf ? "Generating..." : "Download PDF"}</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={handleDownloadDocx}
+                disabled={isDownloadingDocx}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-xs font-semibold text-blue-800 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                title="Download answer report as Word (.docx)"
+              >
+                {downloadedDocx ? (
+                  <>
+                    <Check className="w-4 h-4 text-blue-700" />
+                    <span className="font-bold">Downloaded DOCX!</span>
+                  </>
+                ) : (
+                  <>
+                    <FileDown className={`w-4 h-4 text-blue-600 ${isDownloadingDocx ? "animate-pulse" : ""}`} />
+                    <span>{isDownloadingDocx ? "Generating..." : "Download DOCX"}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Deliverable Body */}
