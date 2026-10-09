@@ -196,7 +196,6 @@ class OfficialExaSearchTool(AMASTool):
                 "properties": {
                     "query": {"type": "string", "description": "Search query"},
                     "num_results": {"type": "integer", "default": 10},
-                    "use_autoprompt": {"type": "boolean", "default": True},
                     "type": {"type": "string", "enum": ["neural", "keyword"], "default": "neural"}
                 },
                 "required": ["query"]
@@ -216,7 +215,7 @@ class OfficialExaSearchTool(AMASTool):
                 self._client = None
         return self._client
 
-    def execute(self, query: str = "", num_results: int = 10, use_autoprompt: bool = True, type: str = "neural", **kwargs) -> ToolResult:
+    def execute(self, query: str = "", num_results: int = 10, type: str = "neural", **kwargs) -> ToolResult:
         start = time.perf_counter()
         if not query:
             return ToolResult(success=False, data=None, error="Query required", source=self.source, category=self.category, duration_ms=0.0)
@@ -227,7 +226,7 @@ class OfficialExaSearchTool(AMASTool):
             return ToolResult(success=False, data={"query": query}, error="Exa client unavailable. Install exa-py and set EXA_API_KEY.", source=self.source, category=self.category, duration_ms=round(duration_ms, 2))
 
         try:
-            response = client.search(query, num_results=num_results, use_autoprompt=use_autoprompt, type=type)
+            response = client.search(query, num_results=num_results, type=type)
             duration_ms = (time.perf_counter() - start) * 1000.0
 
             results = getattr(response, "results", [])

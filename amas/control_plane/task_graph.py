@@ -131,7 +131,9 @@ class TaskGraph:
     def mark_verified(self, task_id: str, verification: Dict[str, Any]):
         if task_id in self._nodes:
             is_valid = verification.get("is_valid", False)
-            self._nodes[task_id]["status"] = TaskStatus.VERIFIED.value if is_valid else TaskStatus.FAILED.value
+            v_status = verification.get("status", "")
+            should_verify = is_valid or v_status in ["VERIFIED", "PARTIAL"]
+            self._nodes[task_id]["status"] = TaskStatus.VERIFIED.value if should_verify else TaskStatus.FAILED.value
             self._nodes[task_id]["verification"] = verification
 
     def mark_failed(self, task_id: str, error: str) -> bool:

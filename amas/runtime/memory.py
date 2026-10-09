@@ -28,7 +28,9 @@ class RunMemory:
         return self._blackboard.get(key, default)
 
     def to_dict(self) -> Dict[str, Any]:
-        return dict(self._blackboard)
+        d = dict(self._blackboard)
+        d["tool_calls"] = list(self._tool_history)
+        return d
 
     def log_tool_call(self, record: Dict[str, Any]):
         self._tool_history.append(record)
@@ -52,6 +54,32 @@ class RunMemory:
     @property
     def tool_history(self) -> List[Dict[str, Any]]:
         return list(self._tool_history)
+
+    def record_task_result(self, task_id: str, title: str, agent: str, result: str):
+        """Record completed task output to blackboard and history for downstream tasks."""
+        self._blackboard[f"task_{task_id}_result"] = result
+        if "completed_task_results" not in self._blackboard or not isinstance(self._blackboard["completed_task_results"], list):
+            self._blackboard["completed_task_results"] = []
+        self._blackboard["completed_task_results"].append({
+            "task_id": task_id,
+            "title": title,
+            "agent": agent,
+            "result": result,
+            "timestamp": time.time()
+        })
+
+    def get_accumulated_results_text(self) -> str:
+        """Produce a clean, chronological text compilation of all completed task findings."""
+        results = self._blackboard.get("completed_task_results", [])
+        if not results:
+            return ""
+        sections = []
+        for item in results:
+            sections.append(
+                f"### [Upstream Task Result: {item.get('task_id', '')} - {item.get('title', '')} ({item.get('agent', '')})]\n"
+                f"{item.get('result', '')}\n"
+            )
+        return "\n".join(sections)
 
 
 class SessionMemory:

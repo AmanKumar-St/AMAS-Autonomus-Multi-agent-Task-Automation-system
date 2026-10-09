@@ -11,6 +11,7 @@ import time
 import json
 import logging
 import os
+import re
 from typing import Dict, List, Any, Optional
 
 from amas.providers.manager import ProviderManager
@@ -21,8 +22,8 @@ from amas.runtime.memory import RunMemory
 logger = logging.getLogger("amas.runtime.praison")
 
 
-def json_truncate(data: Any, max_len: int = 1000) -> str:
-    """Helper to cleanly format JSON snippets for prompts."""
+def json_truncate(data: Any, max_len: int = 4000) -> str:
+    """Helper to cleanly format JSON snippets for prompts without premature cutoff."""
     try:
         s = json.dumps(data, default=str)
         if len(s) > max_len:
@@ -30,6 +31,43 @@ def json_truncate(data: Any, max_len: int = 1000) -> str:
         return s
     except Exception:
         return str(data)[:max_len]
+
+
+def format_tool_result_for_context(tool_name: str, tool_result: Any) -> str:
+    """Format tool execution output into clean, structured readable text for LLM agents."""
+    if not tool_result or not tool_result.success:
+        err = getattr(tool_result, "error", "Execution failed") if tool_result else "No result"
+        return f"Tool '{tool_name}' error: {err}"
+
+    data = tool_result.data
+    if isinstance(data, dict):
+        # 1. Web search / Tavily results
+        results = data.get("results")
+        answer = data.get("answer")
+        if results is not None or answer is not None:
+            parts = []
+            if answer:
+                parts.append(f"AI Direct Answer:\n{answer}\n")
+            if results and isinstance(results, list):
+                parts.append("Factual Search Results & Citations:")
+                for idx, r in enumerate(results[:8], 1):
+                    title = r.get("title", "Untitled")
+                    url = r.get("url", "")
+                    snip = r.get("snippet") or r.get("content") or ""
+                    parts.append(f"[{idx}] {title}\n    URL: {url}\n    Content: {snip[:700]}")
+            return "\n".join(parts)
+
+        # 2. Artifact writer result
+        if "filename" in data and "file_path" in data:
+            return f"Artifact '{data.get('filename')}' created at {data.get('file_path')} (size: {data.get('size_bytes', 0)} bytes)."
+
+        # 3. Standard JSON data
+        try:
+            return json.dumps(data, indent=2, default=str)[:6000]
+        except Exception:
+            return str(data)[:6000]
+
+    return str(data)[:6000]
 
 
 class PraisonRuntime:
@@ -43,18 +81,51 @@ class PraisonRuntime:
     def _get_llm_config(self, preferred_provider_id: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
         """Get LLM configuration for PraisonAI agent."""
         provider = self.provider_manager.get_provider(preferred_provider_id)
+        chosen_model = model or provider.default_model
+
+        # Ensure correct litellm provider prefix so litellm routes correctly
+        pid = provider.provider_id.lower()
+        if pid == "groq" and not chosen_model.startswith("groq/"):
+            chosen_model = f"groq/{chosen_model}"
+        elif pid == "openrouter" and not chosen_model.startswith("openrouter/"):
+            chosen_model = f"openrouter/{chosen_model}"
+        elif pid == "gemini" and not chosen_model.startswith("gemini/"):
+            chosen_model = f"gemini/{chosen_model}"
+
         return {
             "llm": provider.provider_id,
-            "model": model or provider.default_model,
+            "model": chosen_model,
             "base_url": provider.base_url if hasattr(provider, 'base_url') else None,
             "api_key": provider.api_key if hasattr(provider, 'api_key') else None
         }
 
-    def _resolve_tool_arguments(self, tool_name: str, raw_args: Dict[str, Any], memory: RunMemory) -> Dict[str, Any]:
+    def _resolve_tool_arguments(
+        self,
+        tool_name: str,
+        raw_args: Dict[str, Any],
+        memory: RunMemory,
+        task_data: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Auto-bind blackboard context to tool parameters when upstream tasks generated data."""
         resolved = dict(raw_args or {})
         tool = self.tool_registry.get_tool(tool_name)
         tool_id = tool.id if tool else tool_name
+        task_data = task_data or {}
+
+        # 0. Search tools query sanitization (strip template placeholders and syntax errors)
+        if tool_id in ["praison_web_search", "duckduckgo_search", "official_tavily_search", "tavily_search", "web_search", "ddgs_search"]:
+            if "query" in resolved:
+                q = str(resolved["query"])
+                # Strip curly brace placeholders like {region}, {date}, {{deaths}}
+                q = re.sub(r'\{[^{}]*\}', '', q)
+                q = re.sub(r'\{\{[^{}]*\}\}', '', q)
+                # Strip restrictive site: directives if they cause 0 hits
+                q = re.sub(r'site:\S+', '', q)
+                q = re.sub(r'\s+', ' ', q).strip().strip('"').strip("'")
+                if not q or len(q) < 4:
+                    q = task_data.get("description", task_data.get("title", ""))
+                    q = re.sub(r'\{[^{}]*\}', '', q).strip()
+                resolved["query"] = q
 
         # 1. Financial risk calculator resolution
         if tool_id in ["amas_financial_risk_calculator", "compute_risk_metrics"]:
@@ -71,11 +142,19 @@ class PraisonRuntime:
                     resolved["data_points"] = telemetry
 
         # 3. Artifact writer resolution
-        if tool_id in ["amas_artifact_writer", "create_report"]:
-            if "content" not in resolved or not resolved["content"]:
-                resolved["content"] = memory.get("latest_summary") or memory.get("last_result") or "# AMAS Workflow Deliverable\nExecution completed."
+        if tool_id in ["amas_artifact_writer", "create_report", "write_artifact"]:
+            content = str(resolved.get("content", "") or "").strip()
+            # If content is absent or is an unpopulated template skeleton with curly braces
+            if not content or "{{" in content or "{" in content:
+                accumulated = memory.get_accumulated_results_text() or memory.get("latest_summary") or memory.get("last_result")
+                if accumulated and len(accumulated.strip()) > 30:
+                    resolved["content"] = accumulated
+                else:
+                    resolved["content"] = f"# AMAS Deliverable Report: {task_data.get('title', 'Execution Deliverable')}\n\nExecution completed successfully."
+
             if "filename" not in resolved or not resolved["filename"]:
-                resolved["filename"] = "deliverable_report.md"
+                safe_title = re.sub(r'[^a-zA-Z0-9_-]', '_', task_data.get("title", "deliverable_report")).strip('_')[:35]
+                resolved["filename"] = f"{safe_title or 'deliverable_report'}.md"
 
         return resolved
 
@@ -126,11 +205,10 @@ class PraisonRuntime:
             role=profile.role,
             goal=profile.goal,
             backstory=profile.backstory,
-            llm=llm_config.get("llm"),
             model=llm_config.get("model"),
             base_url=llm_config.get("base_url"),
             api_key=llm_config.get("api_key"),
-            tools=praison_tools if praison_tools else None,
+            tools=None,  # Tools executed safely via AMAS ToolRegistry; Agent focuses on reasoning/synthesis
             instructions=f"You are the {profile.name}. {profile.backstory} Execute the task: {task_data.get('description', '')}"
         )
         return agent
@@ -188,7 +266,7 @@ class PraisonRuntime:
 
         # 1. If a tool is required, resolve arguments from blackboard and execute via registry
         if tool_required:
-            resolved_args = self._resolve_tool_arguments(tool_required, tool_args, memory)
+            resolved_args = self._resolve_tool_arguments(tool_required, tool_args, memory, task_data)
             logger.info(f"Task '{task_id}' invoking tool '{tool_required}' with resolved args: {list(resolved_args.keys())}")
 
             tool_result = self.tool_registry.execute(tool_required, resolved_args)
@@ -196,15 +274,25 @@ class PraisonRuntime:
 
             # Store result in blackboard
             if tool_result.success and isinstance(tool_result.data, dict):
-                for k, v in tool_result.data.items():
-                    memory.set(k, v)
+                if tool_required in ["amas_artifact_writer", "create_report", "write_artifact"]:
+                    memory.set("latest_artifact", tool_result.data)
+                    memory.set("artifact_file_path", tool_result.data.get("file_path"))
+                    memory.set("artifact_filename", tool_result.data.get("filename"))
+                else:
+                    for k, v in tool_result.data.items():
+                        memory.set(k, v)
                 memory.set(f"task_{task_id}_data", tool_result.data)
 
         # 2. Execute agent reasoning / synthesis with PraisonAI Agent
-        blackboard_snapshot = memory.to_dict()
-        context_summary = f"Workflow Blackboard Context:\n{json_truncate(blackboard_snapshot, 1500)}"
-        if tool_result:
-            context_summary += f"\n\nTool Call Result ({tool_required}):\nSuccess: {tool_result.success}\nData: {json_truncate(tool_result.data, 1000)}"
+        blackboard_snapshot = {k: v for k, v in memory.to_dict().items() if k not in ["tool_calls", "completed_task_results"]}
+        accumulated_tasks = memory.get_accumulated_results_text()
+        formatted_tool = format_tool_result_for_context(tool_required, tool_result) if tool_result else ""
+
+        context_summary = f"Workflow Blackboard Context:\n{json_truncate(blackboard_snapshot, 2500)}"
+        if accumulated_tasks:
+            context_summary += f"\n\n--- Upstream Task Results & Research Data ---\n{accumulated_tasks[:8000]}"
+        if formatted_tool:
+            context_summary += f"\n\n--- Current Tool Execution Result ({tool_required}) ---\n{formatted_tool}"
 
         # Try PraisonAI Agent first
         praison_agent = self._create_praison_agent(role_str, task_data, preferred_provider_id, model)
@@ -215,11 +303,19 @@ class PraisonRuntime:
             try:
                 praison_task = self._create_praison_task(task_data, praison_agent, tool_required, resolved_args if tool_required else {})
                 if praison_task:
-                    # Execute via PraisonAI
+                    # Execute via PraisonAI - pass task description as prompt
                     logger.info(f"Executing task '{task_id}' via PraisonAI Agent")
-                    task_output = praison_agent.start(praison_task)
-                    agent_output = str(task_output)
-                    logger.info(f"PraisonAI task completed for '{task_id}'")
+                    # Use the task description along with blackboard context as the prompt for the agent
+                    task_prompt = f"{praison_task.description}\n\n{context_summary}\n\nExpected output: {praison_task.expected_output}"
+                    task_output = praison_agent.start(task_prompt)
+                    agent_output = str(task_output) if task_output else ""
+                    if not agent_output or len(agent_output.strip()) < 10 or agent_output.strip().lower() in ["none", "null"]:
+                        logger.info(f"PraisonAI returned empty output for '{task_id}'. Falling back to LLM.")
+                        agent_output = self._execute_llm_fallback(context_summary, role_str, title, description, preferred_provider_id, model)
+                        used_provider = preferred_provider_id or "fallback"
+                        used_model = model or "fallback"
+                    else:
+                        logger.info(f"PraisonAI task completed for '{task_id}'")
                 else:
                     raise ValueError("Failed to create PraisonAI task")
             except Exception as e:
@@ -231,7 +327,8 @@ class PraisonRuntime:
             # Fallback to direct LLM call
             agent_output = self._execute_llm_fallback(context_summary, role_str, title, description, preferred_provider_id, model)
 
-        # Update latest summary in memory for downstream tasks
+        # Update and accumulate task findings in memory for downstream tasks and final deliverable
+        memory.record_task_result(task_id, title, role_str, agent_output)
         memory.set("latest_summary", agent_output)
         memory.set("last_result", agent_output)
 
@@ -265,10 +362,15 @@ class PraisonRuntime:
     ) -> str:
         """Fallback to direct LLM call when PraisonAI is unavailable."""
         system_prompt = f"""You are the {role_str} in the AMAS Multi-Agent Automation System.
-Your Goal: Execute task '{title}' accurately and thoroughly.
+Your Goal: Execute task '{title}' accurately, thoroughly, and professionally.
 Task Instructions: {description}
-Enforce strict zero-hallucination. Only state facts and metrics present in the tool results or blackboard context.
-Output your analytical synthesis in direct formatted Markdown text. Do not output tool calling JSON or invoke tools."""
+Factual Grounding:
+- Base your analysis directly on the facts, statistics, numbers, and tool results provided in the context.
+- Maintain zero-hallucination, but make full use of all verified data points present in the Upstream Task Results or Tool Execution Output.
+Deliverable Formatting:
+- Synthesize findings into a rich, structured Markdown deliverable with clear headings, comparison tables, key metrics, and source citations.
+- Never state that data is unavailable if relevant facts or figures are present in the provided context.
+- Output direct formatted Markdown text without tool-calling JSON fences."""
 
         user_content = f"{context_summary}\n\nPlease provide the definitive outcome and deliverable for task '{title}'."
 

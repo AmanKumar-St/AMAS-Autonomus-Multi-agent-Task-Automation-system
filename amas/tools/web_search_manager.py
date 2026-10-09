@@ -150,7 +150,13 @@ class WebSearchManager:
                 result = tool.execute(query=query, **kwargs)
                 duration_ms = (time.perf_counter() - start) * 1000.0
 
-                if result.success and result.data and result.data.get("results"):
+                if result.success and result.data and (result.data.get("results") or result.data.get("articles")):
+                    # Success - normalize response to have "articles" key for consistency
+                    if result.data.get("results") and not result.data.get("articles"):
+                        result.data["articles"] = result.data["results"]
+                    elif result.data.get("articles") and not result.data.get("results"):
+                        result.data["results"] = result.data["articles"]
+                    
                     # Success - add manager metadata
                     result.metadata = result.metadata or {}
                     result.metadata.update({

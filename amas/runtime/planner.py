@@ -51,13 +51,16 @@ AVAILABLE TOOLS IN REGISTRY:
 {tools_summary}
 
 RULES:
-1. Break down the objective into 2 to 5 well-defined sequential or parallel tasks.
+1. Break down the objective into 2 to 4 well-defined sequential tasks.
 2. Specify dependencies accurately using task IDs (e.g. "dependencies": ["task_1"]).
 3. Ensure the graph is a valid DAG (no circular dependencies).
-4. Assign the appropriate agent and tool for each task. If no tool is needed (e.g. pure reasoning or verification), set "tool_required": null.
-5. If arguments are needed for a tool, provide them in "tool_args".
-6. Always end with a Verification task or final deliverable synthesis.
-7. Output ONLY a valid JSON object matching the schema below. No conversational markdown text.
+4. Assign the appropriate agent and tool for each task. If no tool is needed (e.g. synthesis, calculation from prior tasks, or audit), set "tool_required": null.
+5. STRICTLY NO TEMPLATE PLACEHOLDERS: NEVER use template strings or placeholder variables like {{region}}, {{date}}, {{deaths}}, or $VAR in "tool_args" or "description". Every tool argument MUST be a real, concrete, directly usable string.
+6. WEB SEARCH QUERIES: For search tools ("praison_web_search", "official_tavily_search", "web_search"), generate direct, natural, keyword-rich search queries that directly target the objective (e.g. "India floods 2024 situation deaths relief funds infrastructure damage"). Do NOT use restrictive search operators or placeholders like site:gov.in "{{region}}".
+7. ARTIFACT WRITER: If using "amas_artifact_writer", set "filename" (e.g. "india_flood_summary.md") and set "content": "". Do NOT provide template skeletons with curly braces; the runtime automatically populates it with accumulated findings.
+8. SYNTHESIS DELIVERABLE: Ensure an ExecutionAgent or AnalysisAgent task produces a comprehensive, beautifully structured executive report with tables and metrics answering all aspects of the user's request.
+9. Always conclude with a Verification task or final deliverable synthesis.
+10. Output ONLY a valid JSON object matching the schema below. No conversational markdown text.
 
 REQUIRED JSON SCHEMA:
 {{
@@ -70,7 +73,7 @@ REQUIRED JSON SCHEMA:
       "description": "Detailed execution instructions for the agent",
       "agent": "ResearchAgent",
       "tool_required": "praison_web_search",
-      "tool_args": {{"query": "search term"}},
+      "tool_args": {{"query": "concrete natural search keywords without placeholders"}},
       "dependencies": []
     }}
   ]

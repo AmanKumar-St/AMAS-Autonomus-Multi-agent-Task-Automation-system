@@ -15,6 +15,13 @@ import unittest
 import os
 import json
 
+# Load .env file for test environment
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # Ensure UTF-8 output
 if sys.platform == "win32":
     try:
@@ -91,10 +98,22 @@ class TestAMASSuite(unittest.TestCase):
 
     @unittest.skipIf(not has_search_keys(), "No search API keys configured")
     def test_praisonai_live_web_search(self):
-        res = self.tool_registry.execute("web_search", {"query": "PraisonAI multi agent"})
+        """Test the PraisonAI DuckDuckGo search tool directly."""
+        res = self.tool_registry.execute("praison_web_search", {"query": "PraisonAI multi agent"})
         self.assertTrue(res.success)
         self.assertEqual(res.source, "praisonai")
         self.assertGreater(len(res.data.get("articles", [])), 0)
+
+    @unittest.skipIf(not has_search_keys(), "No search API keys configured")
+    def test_unified_web_search_fallback(self):
+        """Test the unified web search tool with multi-provider fallback."""
+        res = self.tool_registry.execute("web_search", {"query": "PraisonAI multi agent"})
+        self.assertTrue(res.success)
+        # Should use Tavily (first available) or fall back
+        self.assertIn(res.source, ["official_sdk", "praisonai", "custom"])
+        self.assertGreater(len(res.data.get("articles", [])), 0)
+        # Check fallback metadata is present
+        self.assertIn("metadata", res.__dict__ if hasattr(res, '__dict__') else {})
 
     def test_official_yahoo_finance(self):
         res = self.tool_registry.execute("retrieve_financial_data", {"ticker": "AAPL", "period_days": 15})

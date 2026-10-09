@@ -20,6 +20,16 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+# Suppress noisy external logging to stdout
+os.environ["LITELLM_LOG"] = "ERROR"
+os.environ["PRAISONAI_LOG_LEVEL"] = "ERROR"
+try:
+    import litellm
+    litellm.suppress_debug_info = True
+    litellm.set_verbose = False
+except Exception:
+    pass
+
 from amas.control_plane.run_manager import RunManager
 from amas.providers.manager import ProviderManager
 from amas.tools.registry import ToolRegistry
@@ -58,13 +68,20 @@ def main():
 
     if args.command == "run":
         manager = RunManager()
-        result = manager.run_workflow(
-            objective=args.objective,
-            preferred_provider_id=args.provider,
-            model=args.model,
-            simulate_failure=args.simulate_failure
-        )
-        print(json.dumps(result, default=str, ensure_ascii=False))
+        real_stdout = sys.stdout
+        sys.stdout = sys.stderr
+        try:
+            result = manager.run_workflow(
+                objective=args.objective,
+                preferred_provider_id=args.provider,
+                model=args.model,
+                simulate_failure=args.simulate_failure
+            )
+        finally:
+            sys.stdout = real_stdout
+
+        json_output = json.dumps(result, default=str, ensure_ascii=False)
+        print(json_output)
 
     elif args.command == "providers":
         pm = ProviderManager()

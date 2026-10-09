@@ -36,6 +36,159 @@ import {
 import { WorkflowResponse, TaskNodeData, AgentRole } from "../types";
 import { exportReportToPDF, exportReportToDOCX } from "../utils/reportExport";
 
+// ---------------------------------------------------------------------------
+// Lightweight Markdown Renderer — renders headings, tables, bold, bullet lists
+// ---------------------------------------------------------------------------
+interface MarkdownRendererProps {
+  content: string;
+  className?: string;
+}
+
+const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = "" }) => {
+  if (!content) return null;
+
+  const lines = content.split("\n");
+  const elements: React.ReactNode[] = [];
+  let tableBuffer: string[] = [];
+  let listBuffer: string[] = [];
+  let key = 0;
+
+  const flushList = () => {
+    if (listBuffer.length === 0) return;
+    elements.push(
+      <ul key={key++} className="list-none space-y-1 my-2">
+        {listBuffer.map((item, i) => {
+          const text = item.replace(/^[-*•]\s*/, "");
+          return (
+            <li key={i} className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed">
+              <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+              <span dangerouslySetInnerHTML={{ __html: renderInline(text) }} />
+            </li>
+          );
+        })}
+      </ul>
+    );
+    listBuffer = [];
+  };
+
+  const flushTable = () => {
+    if (tableBuffer.length === 0) return;
+    const rows = tableBuffer.filter(r => !r.match(/^\|[-:\s|]+\|$/));
+    if (rows.length === 0) { tableBuffer = []; return; }
+    const parseRow = (r: string) => r.split("|").map(c => c.trim()).filter((_, i, a) => i > 0 && i < a.length - 1);
+    const [headerRow, ...bodyRows] = rows;
+    const headers = parseRow(headerRow);
+    elements.push(
+      <div key={key++} className="overflow-x-auto my-3 rounded-xl border border-slate-200 shadow-xs">
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="bg-slate-800 text-white">
+              {headers.map((h, i) => (
+                <th key={i} className="px-3 py-2.5 text-left font-semibold tracking-wide whitespace-nowrap">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {bodyRows.map((row, rIdx) => (
+              <tr key={rIdx} className={rIdx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
+                {parseRow(row).map((cell, cIdx) => (
+                  <td key={cIdx} className="px-3 py-2 text-slate-700 border-t border-slate-100 align-top">
+                    <span dangerouslySetInnerHTML={{ __html: renderInline(cell) }} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+    tableBuffer = [];
+  };
+
+  const renderInline = (text: string): string => {
+    return text
+      .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em class="italic text-slate-700">$1</em>')
+      .replace(/`([^`]+)`/g, '<code class="bg-slate-100 text-slate-800 px-1 rounded text-[11px] font-mono">$1</code>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-indigo-600 underline" target="_blank" rel="noopener noreferrer">$1</a>');
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Table rows
+    if (trimmed.startsWith("|")) {
+      flushList();
+      tableBuffer.push(trimmed);
+      continue;
+    } else if (tableBuffer.length > 0) {
+      flushTable();
+    }
+
+    // List items
+    if (/^[-*•]\s/.test(trimmed)) {
+      listBuffer.push(trimmed);
+      continue;
+    } else if (listBuffer.length > 0) {
+      flushList();
+    }
+
+    // Headings
+    if (trimmed.startsWith("### ")) {
+      elements.push(
+        <h3 key={key++} className="text-sm font-bold text-slate-800 mt-4 mb-1.5 flex items-center gap-1.5">
+          <span className="w-1 h-4 rounded-full bg-indigo-500 shrink-0" />
+          <span dangerouslySetInnerHTML={{ __html: renderInline(trimmed.slice(4)) }} />
+        </h3>
+      );
+    } else if (trimmed.startsWith("## ")) {
+      elements.push(
+        <h2 key={key++} className="text-sm font-extrabold text-slate-900 mt-5 mb-2 pb-1 border-b border-slate-200">
+          <span dangerouslySetInnerHTML={{ __html: renderInline(trimmed.slice(3)) }} />
+        </h2>
+      );
+    } else if (trimmed.startsWith("# ")) {
+      elements.push(
+        <h1 key={key++} className="text-base font-extrabold text-slate-900 mt-4 mb-2">
+          <span dangerouslySetInnerHTML={{ __html: renderInline(trimmed.slice(2)) }} />
+        </h1>
+      );
+    } else if (trimmed.startsWith("> ")) {
+      // Blockquote
+      elements.push(
+        <blockquote key={key++} className="border-l-4 border-indigo-300 pl-3 py-0.5 my-1.5 text-xs text-slate-600 italic bg-indigo-50/50 rounded-r">
+          <span dangerouslySetInnerHTML={{ __html: renderInline(trimmed.slice(2)) }} />
+        </blockquote>
+      );
+    } else if (trimmed === "---" || trimmed === "***") {
+      elements.push(<hr key={key++} className="border-slate-200 my-3" />);
+    } else if (trimmed === "") {
+      if (elements.length > 0) {
+        elements.push(<div key={key++} className="h-1" />);
+      }
+    } else {
+      elements.push(
+        <p key={key++} className="text-xs text-slate-700 leading-relaxed">
+          <span dangerouslySetInnerHTML={{ __html: renderInline(trimmed) }} />
+        </p>
+      );
+    }
+  }
+
+  // Flush any remaining buffers
+  flushList();
+  flushTable();
+
+  return (
+    <div className={`space-y-0.5 ${className}`}>
+      {elements}
+    </div>
+  );
+};
+
 interface WorkflowStudioProps {
   workflowData: WorkflowResponse | null;
   isLoading: boolean;
@@ -815,6 +968,10 @@ INSPECTOR VERIFICATION:
           {/* Deliverable Body */}
           {(() => {
             const comp = workflowData.shared_blackboard?.latest_computation;
+            const verification_score = Math.round(
+              workflowData.metrics?.average_verification_score_pct ??
+              (comp?.confidence_score ? comp.confidence_score * 100 : 100)
+            );
             const isFinancial = comp && comp.sharpe_ratio !== undefined;
             const isAnomaly = comp && comp.anomalies_count !== undefined;
 
@@ -1011,9 +1168,7 @@ INSPECTOR VERIFICATION:
                       <Sparkles className="w-4 h-4 text-emerald-600" />
                       <span>Executive Sports Summary &amp; Analysis:</span>
                     </h4>
-                    <p className="text-xs text-slate-700 leading-relaxed font-sans whitespace-pre-line">
-                      {comp.summary}
-                    </p>
+                    <MarkdownRenderer content={comp.summary || ""} className="pt-1" />
                   </div>
 
                   {/* Match Stats Breakdown */}
@@ -1144,9 +1299,7 @@ INSPECTOR VERIFICATION:
                       <Sparkles className="w-4 h-4 text-emerald-600" />
                       <span>Executive Entertainment Findings:</span>
                     </h4>
-                    <p className="text-xs text-slate-700 leading-relaxed font-sans whitespace-pre-line">
-                      {comp.summary}
-                    </p>
+                    <MarkdownRenderer content={comp.summary || ""} className="pt-1" />
                   </div>
 
                   {/* Industry Honors Breakdown */}
@@ -1262,9 +1415,7 @@ INSPECTOR VERIFICATION:
                       <Sparkles className="w-4 h-4 text-emerald-600" />
                       <span>Executive Technical Findings:</span>
                     </h4>
-                    <p className="text-xs text-slate-700 leading-relaxed font-sans whitespace-pre-line">
-                      {comp.summary}
-                    </p>
+                    <MarkdownRenderer content={comp.summary || ""} className="pt-1" />
                   </div>
 
                   {/* Systems Breakdown */}
@@ -1381,9 +1532,7 @@ INSPECTOR VERIFICATION:
                       <Sparkles className="w-4 h-4 text-emerald-600" />
                       <span>Executive Factual Synthesis &amp; Findings:</span>
                     </h4>
-                    <p className="text-xs text-slate-700 leading-relaxed font-sans whitespace-pre-line">
-                      {comp.summary || "Comprehensive real-time factual analysis synthesized by autonomous research and execution agents."}
-                    </p>
+                    <MarkdownRenderer content={comp.summary || "Comprehensive real-time factual analysis synthesized by autonomous research and execution agents."} className="pt-1" />
                   </div>
 
                   {/* State-by-State Regional Impact Breakdown */}
@@ -1488,13 +1637,10 @@ INSPECTOR VERIFICATION:
                     <Sparkles className="w-4 h-4 text-emerald-600" />
                     <span>Executive Factual Synthesis &amp; Findings:</span>
                   </h4>
-                  <p className="text-xs text-slate-700 leading-relaxed font-sans whitespace-pre-line">
-                    {comp?.summary || (
-                      typeof comp === "object"
-                        ? JSON.stringify(comp, null, 2)
-                        : "The autonomous multi-agent system successfully executed all tasks in the DAG without unhandled errors."
-                    )}
-                  </p>
+                  <MarkdownRenderer
+                    content={comp?.summary || "The autonomous multi-agent system successfully executed all tasks in the DAG without unhandled errors."}
+                    className="pt-1"
+                  />
                 </div>
 
                 {comp?.breakdown && comp.breakdown.length > 0 && (

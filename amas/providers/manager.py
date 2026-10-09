@@ -111,9 +111,9 @@ class ProviderManager:
                 reasoning=True,
                 max_context=131072,
                 available_models=[
+                    "qwen/qwen3.8-27b",
                     "openai/gpt-oss-120b",
                     "openai/gpt-oss-20b",
-                    "qwen/qwen3.8-27b",
                     "meta-llama/llama-prompt-guard-2-86m"
                 ]
             )
@@ -304,14 +304,10 @@ class ProviderManager:
                 logger.warning(f"Provider {pid} failed: {err_msg}. Evaluating fallback.")
                 self._health[pid].record_failure(err_msg)
                 last_error = e
-                # Check for rate limit or timeout errors specifically
-                if "429" in err_msg or "timeout" in err_msg.lower() or "not found" in err_msg.lower():
+                # Check for rate limit, timeout, or general provider errors to trigger fallback
+                if self.provider_mode in ["fallback", "automatic"]:
                     continue
-                else:
-                    # If it's a non-retryable error, still try fallback if in automatic mode
-                    if self.provider_mode == "automatic":
-                        continue
-                    raise e
+                raise e
 
         if last_error:
             raise last_error

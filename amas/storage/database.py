@@ -125,6 +125,20 @@ class AMASDatabase:
             );
             """)
 
+            # 7. Tool metrics table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tool_metrics (
+                tool_id TEXT PRIMARY KEY,
+                calls INTEGER,
+                successes INTEGER,
+                failures INTEGER,
+                total_latency_ms REAL,
+                avg_latency_ms REAL,
+                last_status TEXT,
+                updated_at REAL
+            );
+            """)
+
             conn.commit()
             conn.close()
 

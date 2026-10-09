@@ -43,6 +43,59 @@ function runPythonCommand(args: string[]): Promise<{ stdout: string; stderr: str
   });
 }
 
+// Safely parse JSON from python stdout, handling logging noise and boundary markers
+function parseJsonOutput(output: string): any {
+  const trimmed = output.trim();
+  if (!trimmed) {
+    throw new Error("Empty output received from orchestrator");
+  }
+
+  // 1. Check for explicit boundary markers
+  const startMarker = "__AMAS_RESULT_START__";
+  const endMarker = "__AMAS_RESULT_END__";
+  if (trimmed.includes(startMarker)) {
+    const afterStart = trimmed.split(startMarker)[1];
+    const jsonStr = afterStart.includes(endMarker) ? afterStart.split(endMarker)[0] : afterStart;
+    return JSON.parse(jsonStr.trim());
+  }
+
+  // 2. Direct JSON parse
+  try {
+    return JSON.parse(trimmed);
+  } catch (_) {}
+
+  // 3. Search backwards line-by-line for a valid JSON line
+  const lines = trimmed.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if ((line.startsWith("{") && line.endsWith("}")) || (line.startsWith("[") && line.endsWith("]"))) {
+      try {
+        return JSON.parse(line);
+      } catch (_) {}
+    }
+  }
+
+  // 4. Search for outermost matching object brackets
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(trimmed.substring(firstBrace, lastBrace + 1));
+    } catch (_) {}
+  }
+
+  // 5. Search for outermost matching array brackets
+  const firstBracket = trimmed.indexOf("[");
+  const lastBracket = trimmed.lastIndexOf("]");
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    try {
+      return JSON.parse(trimmed.substring(firstBracket, lastBracket + 1));
+    } catch (_) {}
+  }
+
+  throw new Error(`Failed to parse valid JSON from output:\n${trimmed.slice(0, 300)}...`);
+}
+
 // In-memory event subscribers for SSE
 const sseSubscribers: Map<string, Set<Response>> = new Map();
 
@@ -78,7 +131,7 @@ function broadcastSSE(runId: string, event: any) {
 app.get("/api/system-info", async (req: Request, res: Response) => {
   try {
     const { stdout } = await runPythonCommand(["-m", "amas.cli", "providers"]);
-    const providers = JSON.parse(stdout || "[]");
+    const providers = parseJsonOutput(stdout || "[]");
     const activeProvider = providers.find((p: any) => p.is_default) || providers.find((p: any) => p.is_configured) || providers[0];
 
     res.json({
@@ -122,7 +175,7 @@ app.get("/api/system-info", async (req: Request, res: Response) => {
 app.get("/api/providers", async (req: Request, res: Response) => {
   try {
     const { stdout } = await runPythonCommand(["-m", "amas.cli", "providers"]);
-    res.json(JSON.parse(stdout || "[]"));
+    res.json(parseJsonOutput(stdout || "[]"));
   } catch (err: any) {
     res.status(500).json({ error: "Failed to list providers", details: err.message });
   }
@@ -132,7 +185,7 @@ app.post("/api/providers/:id/test", async (req: Request, res: Response) => {
   const providerId = req.params.id;
   try {
     const { stdout } = await runPythonCommand(["-m", "amas.cli", "test-provider", providerId]);
-    res.json(JSON.parse(stdout || "{}"));
+    res.json(parseJsonOutput(stdout || "{}"));
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -163,10 +216,10 @@ app.post(["/api/workflow/run", "/api/runs"], async (req: Request, res: Response)
     }
 
     try {
-      const parsed = JSON.parse(stdout);
+      const parsed = parseJsonOutput(stdout);
       res.json(parsed);
-    } catch (parseErr) {
-      res.status(500).json({ error: "Failed to parse orchestrator output", raw: stdout, stderr });
+    } catch (parseErr: any) {
+      res.status(500).json({ error: "Failed to parse orchestrator output", raw: stdout, stderr, details: parseErr.message });
     }
   } catch (err: any) {
     res.status(500).json({ error: "Internal execution error", details: err.message });
@@ -179,7 +232,7 @@ app.post(["/api/workflow/run", "/api/runs"], async (req: Request, res: Response)
 app.get("/api/tools", async (req: Request, res: Response) => {
   try {
     const { stdout } = await runPythonCommand(["-m", "amas.cli", "tools"]);
-    res.json(JSON.parse(stdout || "[]"));
+    res.json(parseJsonOutput(stdout || "[]"));
   } catch (err: any) {
     res.status(500).json({ error: "Failed to list tools", details: err.message });
   }
@@ -193,7 +246,7 @@ app.post("/api/tools/execute", async (req: Request, res: Response) => {
     const { stdout } = await runPythonCommand([
       "-m", "amas.cli", "execute-tool", toolName, "--args", jsonArgs
     ]);
-    res.json(JSON.parse(stdout || "{}"));
+    res.json(parseJsonOutput(stdout || "{}"));
   } catch (err: any) {
     res.status(500).json({ error: "Tool execution failed", details: err.message });
   }
@@ -330,7 +383,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "127.0.0.1", () => {
     console.log(`AMAS Autonomous Multi-Agent Server running on http://localhost:${PORT}`);
   });
 }
