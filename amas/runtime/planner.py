@@ -93,6 +93,10 @@ REQUIRED JSON SCHEMA:
 
         plan = self._parse_json_plan(response.content, objective)
         self._validate_dag(plan)
+
+        # Record planning mode metadata
+        if "planning_mode" not in plan:
+            plan["planning_mode"] = "llm"
         return plan
 
     def _parse_json_plan(self, content: str, objective: str) -> Dict[str, Any]:
@@ -108,6 +112,7 @@ REQUIRED JSON SCHEMA:
         try:
             parsed = json.loads(raw)
             if isinstance(parsed, dict) and "tasks" in parsed and isinstance(parsed["tasks"], list):
+                parsed["planning_mode"] = "llm"
                 return parsed
         except Exception:
             pass
@@ -118,6 +123,7 @@ REQUIRED JSON SCHEMA:
             try:
                 parsed = json.loads(match.group(1))
                 if isinstance(parsed, dict) and "tasks" in parsed:
+                    parsed["planning_mode"] = "repaired_llm"
                     return parsed
             except Exception:
                 pass
@@ -127,6 +133,7 @@ REQUIRED JSON SCHEMA:
         return {
             "goal": objective,
             "plan_rationale": "Automated fallback decomposition for objective",
+            "planning_mode": "fallback",
             "tasks": [
                 {
                     "id": "task_1_research",

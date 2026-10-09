@@ -111,6 +111,20 @@ class AMASDatabase:
             );
             """)
 
+            # 6. Approvals table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS approvals (
+                req_id TEXT PRIMARY KEY,
+                run_id TEXT,
+                task_id TEXT,
+                tool_id TEXT,
+                kwargs_json TEXT,
+                status TEXT,
+                created_at REAL,
+                resolved_at REAL
+            );
+            """)
+
             conn.commit()
             conn.close()
 
@@ -207,3 +221,58 @@ class AMASDatabase:
             rows = conn.execute("SELECT * FROM runs ORDER BY start_time DESC LIMIT ?", (limit,)).fetchall()
             conn.close()
             return [dict(r) for r in rows]
+
+    def save_approval(self, approval_data: Dict[str, Any]):
+        """Save or update an approval request."""
+        with self._lock:
+            conn = self._get_connection()
+            conn.execute("""
+            INSERT INTO approvals (req_id, run_id, task_id, tool_id, kwargs_json, status, created_at, resolved_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(req_id) DO UPDATE SET
+                status=excluded.status,
+                resolved_at=excluded.resolved_at;
+            """, (
+                approval_data["req_id"],
+                approval_data["run_id"],
+                approval_data["task_id"],
+                approval_data["tool_id"],
+                json.dumps(approval_data.get("kwargs", {}), default=str),
+                approval_data["status"],
+                approval_data["created_at"],
+                approval_data.get("resolved_at")
+            ))
+            conn.commit()
+            conn.close()
+
+    def update_approval(self, req_id: str, status: str, resolved_at: float):
+        """Update approval status and resolution time."""
+        with self._lock:
+            conn = self._get_connection()
+            conn.execute("""
+            UPDATE approvals SET
+                status = ?,
+                resolved_at = ?
+            WHERE req_id = ?;
+            """, (status, resolved_at, req_id))
+            conn.commit()
+            conn.close()
+
+    def get_pending_approvals(self, run_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get pending approvals, optionally filtered by run_id."""
+        with self._lock:
+            conn = self._get_connection()
+            if run_id:
+                rows = conn.execute("SELECT * FROM approvals WHERE run_id = ? AND status = 'PENDING'", (run_id,)).fetchall()
+            else:
+                rows = conn.execute("SELECT * FROM approvals WHERE status = 'PENDING'").fetchall()
+            conn.close()
+            return [dict(r) for r in rows]
+
+    def get_approval(self, req_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific approval by ID."""
+        with self._lock:
+            conn = self._get_connection()
+            row = conn.execute("SELECT * FROM approvals WHERE req_id = ?", (req_id,)).fetchone()
+            conn.close()
+            return dict(row) if row else None

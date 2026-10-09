@@ -22,6 +22,7 @@ from amas.storage.database import AMASDatabase
 from amas.control_plane.task_graph import TaskGraph, TaskStatus
 from amas.control_plane.event_bus import EventBus
 from amas.control_plane.policy_manager import PolicyManager
+from amas.control_plane.recovery_agent import RecoveryAgent, RecoveryStrategy
 
 logger = logging.getLogger("amas.control_plane.run_manager")
 
@@ -39,11 +40,12 @@ class RunManager:
         self.tool_registry = tool_registry or ToolRegistry()
         self.database = database or AMASDatabase()
         self.event_bus = EventBus(self.database)
-        self.policy_manager = PolicyManager()
+        self.policy_manager = PolicyManager(self.database)
 
         self.planner = LLMPlanner(self.provider_manager, self.tool_registry)
         self.runtime = PraisonRuntime(self.provider_manager, self.tool_registry)
         self.auditor = VerificationAuditor()
+        self.recovery_agent = RecoveryAgent(self.tool_registry, self.provider_manager)
 
     def run_workflow(
         self,
@@ -151,63 +153,189 @@ class RunManager:
                         continue
 
                 # Execute Task via PraisonRuntime
-                try:
-                    exec_outcome = self.runtime.execute_node(
+                max_task_retries = task_node.get("max_retries", 3)
+                task_succeeded = False
+
+                while not task_succeeded and task_node["retry_count"] <= max_task_retries:
+                    # Simulated Transient Failure test handling (Real execution retry demonstration)
+                    if simulate_failure and task_node["retry_count"] == 0 and "detect" in tid.lower():
+                        logger.info(f"Injecting test fault on task {tid} to exercise self-healing.")
+                        time.sleep(0.3)
+                        err_msg = "Simulated transient network timeout"
+                    else:
+                        try:
+                            exec_outcome = self.runtime.execute_node(
+                                task_data=task_node,
+                                memory=memory,
+                                preferred_provider_id=active_provider_id,
+                                model=active_model
+                            )
+
+                            duration_ms = exec_outcome.get("duration_ms", 0.0)
+                            task_result = exec_outcome.get("result", "")
+                            graph.mark_completed(tid, task_result, duration_ms)
+
+                            # 4. Audit & Verification Gate
+                            self.event_bus.emit(
+                                run_id=run_id,
+                                event_type="VERIFICATION_STARTED",
+                                agent="VerificationAgent",
+                                payload={"task_id": tid}
+                            )
+
+                            v_result = self.auditor.audit_task(
+                                task_data=task_node,
+                                task_output=task_result,
+                                blackboard=memory.to_dict()
+                            )
+
+                            graph.mark_verified(tid, v_result.to_dict())
+                            self.database.save_task(task_node, run_id)
+
+                            self.event_bus.emit(
+                                run_id=run_id,
+                                event_type="VERIFICATION_COMPLETED",
+                                agent="VerificationAgent",
+                                payload={
+                                    "task_id": tid,
+                                    "status": v_result.status,
+                                    "score": v_result.score,
+                                    "critique": v_result.critique
+                                }
+                            )
+
+                            task_succeeded = True
+                            continue
+
+                        except Exception as e:
+                            err_msg = str(e)
+                            logger.error(f"Task {tid} execution error: {err_msg}")
+
+                    # Recovery Agent decides strategy
+                    recovery_decision = self.recovery_agent.decide_recovery(
+                        error_message=err_msg,
                         task_data=task_node,
-                        memory=memory,
-                        preferred_provider_id=active_provider_id,
-                        model=active_model
-                    )
-
-                    duration_ms = exec_outcome.get("duration_ms", 0.0)
-                    task_result = exec_outcome.get("result", "")
-                    graph.mark_completed(tid, task_result, duration_ms)
-
-                    # 4. Audit & Verification Gate
-                    self.event_bus.emit(
-                        run_id=run_id,
-                        event_type="VERIFICATION_STARTED",
-                        agent="VerificationAgent",
-                        payload={"task_id": tid}
-                    )
-
-                    v_result = self.auditor.audit_task(
-                        task_data=task_node,
-                        task_output=task_result,
-                        blackboard=memory.to_dict()
-                    )
-
-                    graph.mark_verified(tid, v_result.to_dict())
-                    self.database.save_task(task_node, run_id)
-
-                    self.event_bus.emit(
-                        run_id=run_id,
-                        event_type="VERIFICATION_COMPLETED",
-                        agent="VerificationAgent",
-                        payload={
-                            "task_id": tid,
-                            "status": v_result.status,
-                            "score": v_result.score,
-                            "critique": v_result.critique
+                        attempt=task_node["retry_count"] + 1,
+                        max_retries=max_task_retries,
+                        context={
+                            "provider": active_provider_id,
+                            "model": active_model,
+                            "tool_required": task_node.get("tool_required"),
+                            "run_id": run_id
                         }
                     )
 
-                except Exception as e:
-                    err_msg = str(e)
-                    logger.error(f"Task {tid} execution error: {err_msg}")
-                    should_retry = graph.mark_failed(tid, err_msg)
-                    if should_retry:
+                    # Apply recovery strategy
+                    strategy_applied = self._apply_recovery_strategy(
+                        recovery_decision, task_node, memory, active_provider_id, active_model
+                    )
+
+                    if strategy_applied:
                         total_retries += 1
-                        delay = self.policy_manager.calculate_backoff_delay(task_node["retry_count"])
+                        delay = recovery_decision.backoff_delay
                         self.event_bus.emit(
                             run_id=run_id,
-                            event_type="RETRY_STARTED",
+                            event_type="RECOVERY_DECISION",
                             agent="RecoveryAgent",
-                            payload={"task_id": tid, "attempt": task_node["retry_count"], "backoff_delay": delay}
+                            payload={
+                                "task_id": tid,
+                                "error_type": recovery_decision.error_type.value,
+                                "strategy": recovery_decision.strategy.value,
+                                "reason": recovery_decision.reason,
+                                "alternative_tool": recovery_decision.alternative_tool,
+                                "alternative_provider": recovery_decision.alternative_provider,
+                                "backoff_delay": delay
+                            }
                         )
                         time.sleep(delay)
+                        # Update task_node reference after potential tool/provider switch
+                        task_node = graph._nodes[tid]
                     else:
+                        # No recovery possible or aborted
+                        graph.mark_failed(tid, err_msg)
                         self.database.save_task(task_node, run_id)
+                        break
+
+    def _apply_recovery_strategy(
+        self,
+        decision,
+        task_node: Dict[str, Any],
+        memory: RunMemory,
+        active_provider_id: str,
+        active_model: str
+    ) -> bool:
+        """Apply the recovery strategy decided by the RecoveryAgent."""
+        strategy = decision.strategy
+
+        if strategy == RecoveryStrategy.RETRY_SAME_TOOL or strategy == RecoveryStrategy.RETRY_WITH_BACKOFF:
+            # Just increment retry count and let the loop continue
+            task_node["retry_count"] += 1
+            task_node["status"] = "RETRYING"
+            return True
+
+        elif strategy == RecoveryStrategy.SWITCH_PROVIDER:
+            if decision.alternative_provider:
+                logger.info(f"Switching provider from {active_provider_id} to {decision.alternative_provider}")
+                # Update task node with new provider (will be picked up by runtime)
+                task_node["preferred_provider_id"] = decision.alternative_provider
+                task_node["retry_count"] += 1
+                task_node["status"] = "RETRYING"
+                return True
+            return False
+
+        elif strategy == RecoveryStrategy.SWITCH_SEARCH_PROVIDER:
+            if decision.alternative_tool:
+                logger.info(f"Switching search tool from {task_node.get('tool_required')} to {decision.alternative_tool}")
+                task_node["tool_required"] = decision.alternative_tool
+                task_node["tool_args"] = decision.modified_arguments or task_node.get("tool_args", {})
+                task_node["retry_count"] += 1
+                task_node["status"] = "RETRYING"
+                return True
+            return False
+
+        elif strategy == RecoveryStrategy.SWITCH_TOOL:
+            if decision.alternative_tool:
+                logger.info(f"Switching tool from {task_node.get('tool_required')} to {decision.alternative_tool}")
+                task_node["tool_required"] = decision.alternative_tool
+                task_node["tool_args"] = decision.modified_arguments or task_node.get("tool_args", {})
+                task_node["retry_count"] += 1
+                task_node["status"] = "RETRYING"
+                return True
+            return False
+
+        elif strategy == RecoveryStrategy.MODIFY_ARGUMENTS:
+            if decision.modified_arguments:
+                logger.info(f"Modifying arguments for task {task_node['id']}")
+                task_node["tool_args"] = decision.modified_arguments
+                task_node["retry_count"] += 1
+                task_node["status"] = "RETRYING"
+                return True
+            return False
+
+        elif strategy == RecoveryStrategy.SIMPLIFY_REQUEST:
+            if decision.modified_arguments:
+                logger.info(f"Simplifying request for task {task_node['id']}")
+                task_node["tool_args"] = decision.modified_arguments
+                task_node["retry_count"] += 1
+                task_node["status"] = "RETRYING"
+                return True
+            return False
+
+        elif strategy == RecoveryStrategy.REPLAN_TASK:
+            logger.info(f"Replanning task {task_node['id']} - marking as failed to trigger replanning")
+            # For now, mark as failed - full replanning would require planner re-invocation
+            return False
+
+        elif strategy == RecoveryStrategy.REQUEST_HUMAN_APPROVAL:
+            logger.info(f"Task {task_node['id']} requires human approval")
+            # This would integrate with PolicyManager approval flow
+            return False
+
+        elif strategy == RecoveryStrategy.ABORT:
+            logger.warning(f"Aborting task {task_node['id']} per recovery decision")
+            return False
+
+        return False
 
         # 4. Finalize Workflow & Synthesis
         run_duration_ms = (time.perf_counter() - run_start) * 1000.0

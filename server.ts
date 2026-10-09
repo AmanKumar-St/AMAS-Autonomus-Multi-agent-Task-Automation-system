@@ -43,6 +43,35 @@ function runPythonCommand(args: string[]): Promise<{ stdout: string; stderr: str
   });
 }
 
+// In-memory event subscribers for SSE
+const sseSubscribers: Map<string, Set<Response>> = new Map();
+
+function addSSESubscriber(runId: string, res: Response) {
+  if (!sseSubscribers.has(runId)) {
+    sseSubscribers.set(runId, new Set());
+  }
+  sseSubscribers.get(runId)!.add(res);
+}
+
+function removeSSESubscriber(runId: string, res: Response) {
+  sseSubscribers.get(runId)?.delete(res);
+}
+
+function broadcastSSE(runId: string, event: any) {
+  const subscribers = sseSubscribers.get(runId);
+  if (subscribers) {
+    const data = `data: ${JSON.stringify(event)}\n\n`;
+    for (const res of subscribers) {
+      try {
+        res.write(data);
+      } catch (e) {
+        // Client disconnected
+        removeSSESubscriber(runId, res);
+      }
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 1. SYSTEM STATUS & ENVIRONMENT INFO
 // ---------------------------------------------------------------------------
@@ -252,7 +281,39 @@ app.get("/api/artifacts/:filename", (req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. VITE MIDDLEWARE (DEV) & STATIC SERVING (PROD)
+// 7. REAL-TIME EVENT STREAM (SSE)
+// ---------------------------------------------------------------------------
+app.get("/api/runs/:runId/events", (req: Request, res: Response) => {
+  const runId = req.params.runId;
+
+  // Set SSE headers
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  // Send initial connection event
+  res.write(`data: ${JSON.stringify({ type: "connected", runId })}\n\n`);
+
+  // Add subscriber
+  addSSESubscriber(runId, res);
+
+  // Handle client disconnect
+  req.on("close", () => {
+    removeSSESubscriber(runId, res);
+  });
+});
+
+// Endpoint to manually broadcast events (for testing or external triggers)
+app.post("/api/runs/:runId/events", (req: Request, res: Response) => {
+  const runId = req.params.runId;
+  const event = req.body;
+  broadcastSSE(runId, event);
+  res.json({ success: true });
+});
+
+// ---------------------------------------------------------------------------
+// 8. VITE MIDDLEWARE (DEV) & STATIC SERVING (PROD)
 // ---------------------------------------------------------------------------
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {

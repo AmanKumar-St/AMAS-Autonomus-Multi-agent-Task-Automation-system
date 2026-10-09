@@ -18,51 +18,17 @@ import { BenchmarkMetrics, ScenarioResult } from "../types";
 export const EvaluationSuiteView: React.FC = () => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [metrics, setMetrics] = useState<BenchmarkMetrics>({
-    completion_rate_pct: 100.0,
-    average_verification_score_pct: 100.0,
-    total_tasks_evaluated: 9,
-    successful_tasks: 9,
-    total_retries_healed: 1,
-    total_benchmark_latency_ms: 51.98,
-    tool_safety_compliance_pct: 100.0,
-    scenarios_tested: 3
+    completion_rate_pct: 0,
+    average_verification_score_pct: 0,
+    total_tasks_evaluated: 0,
+    successful_tasks: 0,
+    total_retries_healed: 0,
+    total_benchmark_latency_ms: 0,
+    tool_safety_compliance_pct: 0,
+    scenarios_tested: 0
   });
 
-  const [scenarios, setScenarios] = useState<ScenarioResult[]>([
-    {
-      scenario_id: "scenario_1",
-      name: "1. Financial Risk & Stock Math (AAPL)",
-      status: "SUCCEEDED",
-      tasks_count: 4,
-      tasks_completed: 4,
-      retries: 0,
-      duration_ms: 1240.5,
-      verification_score: 1.0,
-      tools_invoked: 3
-    },
-    {
-      scenario_id: "scenario_2",
-      name: "2. AI Framework Due Diligence & Scoring",
-      status: "SUCCEEDED",
-      tasks_count: 3,
-      tasks_completed: 3,
-      retries: 0,
-      duration_ms: 1840.2,
-      verification_score: 1.0,
-      tools_invoked: 2
-    },
-    {
-      scenario_id: "scenario_3",
-      name: "3. Sensor Glitch & Auto-Recovery (Self-Healing)",
-      status: "SUCCEEDED",
-      tasks_count: 3,
-      tasks_completed: 3,
-      retries: 1,
-      duration_ms: 2150.0,
-      verification_score: 1.0,
-      tools_invoked: 2
-    }
-  ]);
+  const [scenarios, setScenarios] = useState<ScenarioResult[]>([]);
 
   const [terminalOutput, setTerminalOutput] = useState<string | null>(null);
 

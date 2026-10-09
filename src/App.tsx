@@ -36,12 +36,6 @@ export default function App() {
         }
       })
       .catch((err) => console.error("Failed to load system info:", err));
-
-    // 2. Pre-run default scenario so user sees working DAG and agents immediately
-    runWorkflow(
-      "Perform autonomous financial risk analysis and Sharpe ratio computation for AAPL over 30 days.",
-      false
-    );
   }, []);
 
   const handleSelectProvider = (providerId: string, model: string) => {

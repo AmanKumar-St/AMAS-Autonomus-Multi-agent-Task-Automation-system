@@ -186,7 +186,7 @@ KEY METRICS:
 - Mean Daily Return: +${(comp.mean_daily_return * 100).toFixed(3)}%
 
 INSPECTOR VERIFICATION:
-- Quality Score: 100% (Certified Valid)
+- Quality Score: {verification_score}%
 - Critique: All validation gates passed without mathematical contradictions.
 `;
     } else if (comp?.anomalies_count !== undefined) {
@@ -225,7 +225,7 @@ ${(comp.sources_audited || []).join(" • ")}
 
 INSPECTOR VERIFICATION:
 - Quality Score: 100% (Certified Sound)
-- Critique: Grounded in live sports wire feeds. Zero hallucination detected.
+- Critique: Grounded in live sports wire feeds. Verification critique: {verification_critique}
 `;
     } else if (comp?.category === "entertainment") {
       const pm = comp.primary_metrics || {};
@@ -252,7 +252,7 @@ ${(comp.sources_audited || []).join(" • ")}
 
 INSPECTOR VERIFICATION:
 - Quality Score: 100% (Certified Sound)
-- Critique: Audited against trade publications and Academy archives.
+- Critique: {verification_critique}
 `;
     } else if (comp?.category === "tech_science") {
       const pm = comp.primary_metrics || {};
@@ -289,10 +289,10 @@ User Request: ${workflowData.user_query}
 Status: VERIFIED & CERTIFIED (Duration: ${workflowData.duration_ms} ms)
 
 KEY REPORTED METRICS:
-- Fatalities & Casualties: ${pm.deaths_reported || "92+ Deaths"} (${pm.deaths_detail || ""})
-- Relief Funds & Aid: ${pm.relief_funds_allocated || "₹180+ Crore"} (${pm.relief_funds_detail || ""})
-- Infrastructure Damage: ${pm.infrastructure_impact || "24K+ Homes & 5K+ Roads"} (${pm.infrastructure_detail || ""})
-- Affected Population: ${pm.affected_population || "3.3+ Lakh citizens"}
+- Fatalities & Casualties: ${pm.deaths_reported || "Data unavailable"} (${pm.deaths_detail || ""})
+- Relief Funds & Aid: ${pm.relief_funds_allocated || "Data unavailable"} (${pm.relief_funds_detail || ""})
+- Infrastructure Damage: ${pm.infrastructure_impact || "Data unavailable"} (${pm.infrastructure_detail || ""})
+- Affected Population: ${pm.affected_population || "Data unavailable"}
 
 EXECUTIVE SUMMARY:
 ${comp.summary || ""}
@@ -304,8 +304,8 @@ INFRASTRUCTURE INVENTORY:
 ${(comp.infrastructure_breakdown || []).map((item: string) => `- ${item}`).join("\n")}
 
 INSPECTOR VERIFICATION:
-- Quality Score: 100% (Certified Valid)
-- Critique: Metrics cross-referenced with wire reports and disaster management bulletins. Zero hallucination detected.
+- Quality Score: ${comp.verification_score ? Math.round(comp.verification_score * 100) : "N/A"}%
+- Critique: ${comp.verification_critique || "Metrics cross-referenced with available sources."}
 `;
     }
     return comp?.summary || JSON.stringify(workflowData.shared_blackboard, null, 2);
@@ -1054,14 +1054,14 @@ INSPECTOR VERIFICATION:
                     <div className="space-y-1">
                       <div className="font-bold text-emerald-950 flex items-center gap-1.5">
                         <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                        <span>Verification Gate: 100% Quality Score Certified</span>
+                        <span>Verification Gate: {verification_score}% Quality Score</span>
                       </div>
                       <p className="text-[11px] text-emerald-800">
-                        Sources Audited: {(comp.sources_audited || ["Cricbuzz", "ESPN", "Sports Wire"]).join(" • ")}
+                        Sources Audited: {(comp.sources_audited || []).join(" • ") || "No sources available"}
                       </p>
                     </div>
                     <span className="px-3 py-1 rounded-full bg-emerald-700 text-white font-bold text-xs shrink-0 self-start sm:self-center shadow-2xs">
-                      Zero Hallucination Guaranteed
+                      Verification Score: {verification_score}%
                     </span>
                   </div>
                 </div>
@@ -1172,14 +1172,14 @@ INSPECTOR VERIFICATION:
                     <div className="space-y-1">
                       <div className="font-bold text-emerald-950 flex items-center gap-1.5">
                         <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                        <span>Verification Gate: 100% Quality Score Certified</span>
+                        <span>Verification Gate: {verification_score}% Quality Score</span>
                       </div>
                       <p className="text-[11px] text-emerald-800">
-                        Sources Audited: {(comp.sources_audited || ["Variety", "The Hollywood Reporter", "Box Office Mojo"]).join(" • ")}
+                        Sources Audited: {(comp.sources_audited || []).join(" • ") || "No sources available"}
                       </p>
                     </div>
                     <span className="px-3 py-1 rounded-full bg-emerald-700 text-white font-bold text-xs shrink-0 self-start sm:self-center shadow-2xs">
-                      Zero Hallucination Guaranteed
+                      Verification Score: {verification_score}%
                     </span>
                   </div>
                 </div>
@@ -1290,14 +1290,14 @@ INSPECTOR VERIFICATION:
                     <div className="space-y-1">
                       <div className="font-bold text-emerald-950 flex items-center gap-1.5">
                         <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                        <span>Verification Gate: 100% Quality Score Certified</span>
+                        <span>Verification Gate: {verification_score}% Quality Score</span>
                       </div>
                       <p className="text-[11px] text-emerald-800">
-                        Sources Audited: {(comp.sources_audited || ["Space.com", "NASA Announcements", "Aerospace Telemetry"]).join(" • ")}
+                        Sources Audited: {(comp.sources_audited || []).join(" • ") || "No sources available"}
                       </p>
                     </div>
                     <span className="px-3 py-1 rounded-full bg-emerald-700 text-white font-bold text-xs shrink-0 self-start sm:self-center shadow-2xs">
-                      Zero Hallucination Guaranteed
+                      Verification Score: {verification_score}%
                     </span>
                   </div>
                 </div>
@@ -1328,10 +1328,10 @@ INSPECTOR VERIFICATION:
                         <span>Death &amp; Fatalities</span>
                       </div>
                       <div className="text-2xl font-extrabold text-rose-900">
-                        {pm.deaths_reported || "92+ Deaths"}
+                        {pm.deaths_reported || "Data unavailable"}
                       </div>
                       <p className="text-[11px] text-rose-700 leading-tight">
-                        {pm.deaths_detail || "Multi-state confirmed casualties"}
+                        {pm.deaths_detail || "No detail available"}
                       </p>
                     </div>
 
@@ -1341,10 +1341,10 @@ INSPECTOR VERIFICATION:
                         <span>Relief Funds Allocated</span>
                       </div>
                       <div className="text-2xl font-extrabold text-emerald-900">
-                        {pm.relief_funds_allocated || "₹180+ Crore"}
+                        {pm.relief_funds_allocated || "Data unavailable"}
                       </div>
                       <p className="text-[11px] text-emerald-700 leading-tight">
-                        {pm.relief_funds_detail || "SDRF & emergency rescue funding"}
+                        {pm.relief_funds_detail || "No detail available"}
                       </p>
                     </div>
 
@@ -1354,10 +1354,10 @@ INSPECTOR VERIFICATION:
                         <span>Infrastructure Damage</span>
                       </div>
                       <div className="text-xl font-extrabold text-indigo-900 truncate">
-                        {pm.infrastructure_impact || "24K+ Homes & 5K+ Roads"}
+                        {pm.infrastructure_impact || "Data unavailable"}
                       </div>
                       <p className="text-[11px] text-indigo-700 leading-tight">
-                        {pm.infrastructure_detail || "Houses, highways & water supply"}
+                        {pm.infrastructure_detail || "No detail available"}
                       </p>
                     </div>
 
@@ -1367,10 +1367,10 @@ INSPECTOR VERIFICATION:
                         <span>Affected Citizens</span>
                       </div>
                       <div className="text-2xl font-extrabold text-amber-900">
-                        3.3+ Lakh
+                        {pm.affected_population || "Data unavailable"}
                       </div>
                       <p className="text-[11px] text-amber-700 leading-tight">
-                        {pm.affected_population || "People displaced / in relief camps"}
+                        {pm.affected_population || "No detail available"}
                       </p>
                     </div>
                   </div>
@@ -1440,14 +1440,14 @@ INSPECTOR VERIFICATION:
                     <div className="space-y-1">
                       <div className="font-bold text-emerald-950 flex items-center gap-1.5">
                         <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                        <span>Verification Gate: 100% Quality Score Certified</span>
+                        <span>Verification Gate: {verification_score}% Quality Score</span>
                       </div>
                       <p className="text-[11px] text-emerald-800">
-                        Sources Audited: {(comp.sources_audited || ["The Times of India", "The Indian Express", "The New Indian Express", "The Statesman"]).join(" • ")}
+                        Sources Audited: {(comp.sources_audited || []).join(" • ") || "No sources available"}
                       </p>
                     </div>
                     <span className="px-3 py-1 rounded-full bg-emerald-700 text-white font-bold text-xs shrink-0 self-start sm:self-center shadow-2xs">
-                      Zero Hallucination Guaranteed
+                      Verification Score: {verification_score}%
                     </span>
                   </div>
                 </div>
@@ -1464,7 +1464,7 @@ INSPECTOR VERIFICATION:
                     <span className="font-bold text-slate-100">{comp?.topic || "Autonomous Verified Deliverable"}</span>
                   </div>
                   <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded border border-emerald-800 self-start sm:self-center">
-                    Empirical Analysis Completed (100% Certified)
+                    Empirical Analysis Completed ({verification_score}% Verified)
                   </span>
                 </div>
 
@@ -1519,14 +1519,14 @@ INSPECTOR VERIFICATION:
                     <div className="space-y-1">
                       <div className="font-bold text-emerald-950 flex items-center gap-1.5">
                         <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                        <span>Verification Gate: 100% Quality Score Certified</span>
+                        <span>Verification Gate: {verification_score}% Quality Score</span>
                       </div>
                       <p className="text-[11px] text-emerald-800">
-                        Sources Audited: {comp.sources_audited.join(" • ")}
+                        Sources Audited: {(comp.sources_audited || []).join(" • ") || "No sources available"}
                       </p>
                     </div>
                     <span className="px-3 py-1 rounded-full bg-emerald-700 text-white font-bold text-xs shrink-0 self-start sm:self-center shadow-2xs">
-                      Zero Hallucination Guaranteed
+                      Verification Score: {verification_score}%
                     </span>
                   </div>
                 )}

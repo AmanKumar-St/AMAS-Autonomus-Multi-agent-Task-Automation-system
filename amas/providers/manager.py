@@ -8,6 +8,7 @@ Never exposes raw API keys to external callers or the UI.
 
 from __future__ import annotations
 import os
+import time
 import logging
 from typing import Dict, List, Any, Optional
 import dotenv
@@ -17,6 +18,48 @@ from amas.providers.openai_compatible import OpenAICompatibleProvider
 from amas.providers.gemini_provider import GeminiProvider
 
 logger = logging.getLogger("amas.providers.manager")
+
+
+class ProviderHealth:
+    """Tracks health metrics for a provider."""
+    def __init__(self):
+        self.success_count = 0
+        self.failure_count = 0
+        self.total_latency_ms = 0.0
+        self.last_success_time: Optional[float] = None
+        self.last_failure_time: Optional[float] = None
+        self.last_error: Optional[str] = None
+        self.rate_limited = False
+        self.rate_limit_reset_time: Optional[float] = None
+
+    @property
+    def avg_latency_ms(self) -> float:
+        total = self.success_count + self.failure_count
+        return self.total_latency_ms / total if total > 0 else 0.0
+
+    @property
+    def success_rate(self) -> float:
+        total = self.success_count + self.failure_count
+        return self.success_count / total if total > 0 else 1.0
+
+    def record_success(self, latency_ms: float):
+        self.success_count += 1
+        self.total_latency_ms += latency_ms
+        self.last_success_time = time.time()
+        self.rate_limited = False
+
+    def record_failure(self, error: str):
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        self.last_error = error
+        if "429" in error or "rate limit" in error.lower():
+            self.rate_limited = True
+            self.rate_limit_reset_time = time.time() + 60  # Assume 60s reset
+
+    def is_healthy(self) -> bool:
+        if self.rate_limited and self.rate_limit_reset_time and time.time() < self.rate_limit_reset_time:
+            return False
+        return self.success_rate > 0.5 or (self.success_count + self.failure_count) < 5
 
 
 class ProviderManager:
@@ -29,6 +72,7 @@ class ProviderManager:
             dotenv.load_dotenv()
 
         self._providers: Dict[str, LLMProvider] = {}
+        self._health: Dict[str, ProviderHealth] = {}
         self.default_provider_id: str = self._get_env("DEFAULT_LLM_PROVIDER", "groq").lower()
         self.default_model: str = self._get_env("DEFAULT_LLM_MODEL", "openai/gpt-oss-120b")
         self.provider_mode: str = self._get_env("LLM_PROVIDER_MODE", "fallback").lower()  # fixed | fallback | automatic
@@ -74,6 +118,7 @@ class ProviderManager:
                 ]
             )
         )
+        self._health["groq"] = ProviderHealth()
 
         # 2. OpenRouter
         or_key = self._get_env("OPENROUTER_API_KEY")
@@ -99,6 +144,7 @@ class ProviderManager:
                 ]
             )
         )
+        self._health["openrouter"] = ProviderHealth()
 
         # 3. CodeCraft (OpenAI-compatible)
         cc_key = self._get_env("CODECRAFT_API_KEY")
@@ -117,6 +163,7 @@ class ProviderManager:
                 available_models=[cc_model]
             )
         )
+        self._health["codecraft"] = ProviderHealth()
 
         # 4. Google Gemini
         gemini_key = self._get_env("GEMINI_API_KEY")
@@ -124,6 +171,7 @@ class ProviderManager:
             api_key=gemini_key,
             default_model="gemini-2.5-flash"
         )
+        self._health["gemini"] = ProviderHealth()
 
         # 5. Custom OpenAI-compatible endpoint
         custom_url = self._get_env("CUSTOM_LLM_BASE_URL", "http://localhost:11434/v1")
@@ -142,6 +190,7 @@ class ProviderManager:
                 available_models=[custom_model]
             )
         )
+        self._health["custom"] = ProviderHealth()
 
     def get_provider(self, provider_id: Optional[str] = None) -> LLMProvider:
         """Resolve requested provider or active default."""
@@ -159,6 +208,7 @@ class ProviderManager:
         """Return provider metadata for UI without exposing API keys."""
         results = []
         for pid, p in self._providers.items():
+            health = self._health.get(pid)
             results.append({
                 "id": pid,
                 "name": p.name,
@@ -174,7 +224,16 @@ class ProviderManager:
                     "reasoning": p.capabilities.reasoning,
                     "max_context": p.capabilities.max_context
                 },
-                "available_models": p.capabilities.available_models
+                "available_models": p.capabilities.available_models,
+                "health": {
+                    "success_count": health.success_count if health else 0,
+                    "failure_count": health.failure_count if health else 0,
+                    "avg_latency_ms": round(health.avg_latency_ms, 2) if health else 0.0,
+                    "success_rate": round(health.success_rate, 2) if health else 1.0,
+                    "is_healthy": health.is_healthy() if health else True,
+                    "rate_limited": health.rate_limited if health else False,
+                    "last_error": health.last_error if health else None
+                } if health else None
             })
         return results
 
@@ -202,8 +261,26 @@ class ProviderManager:
         if self.provider_mode == "fixed":
             return primary.chat(messages, model=model, tools=tools, **kwargs)
 
-        # Mode FALLBACK or AUTOMATIC
-        fallback_order = [primary_id] + [pid for pid in self._providers.keys() if pid != primary_id]
+        # Determine fallback order
+        if self.provider_mode == "automatic":
+            # Sort by health: healthy providers first, then by success rate, then by latency
+            configured = [pid for pid, p in self._providers.items() if p.is_configured()]
+            fallback_order = sorted(
+                configured,
+                key=lambda pid: (
+                    0 if self._health[pid].is_healthy() else 1,
+                    -self._health[pid].success_rate,
+                    self._health[pid].avg_latency_ms
+                )
+            )
+            # Ensure preferred provider is tried first if it's in the list
+            if primary_id in fallback_order:
+                fallback_order.remove(primary_id)
+            fallback_order = [primary_id] + fallback_order
+        else:
+            # FALLBACK mode: simple sequential order
+            fallback_order = [primary_id] + [pid for pid in self._providers.keys() if pid != primary_id]
+
         last_error = None
 
         for pid in fallback_order:
@@ -212,10 +289,20 @@ class ProviderManager:
                 continue
             try:
                 logger.info(f"Attempting LLM call via provider: {pid}")
-                return provider.chat(messages, model=model if pid == primary_id else None, tools=tools, **kwargs)
+                start = time.perf_counter()
+                response = provider.chat(messages, model=model if pid == primary_id else None, tools=tools, **kwargs)
+                latency_ms = (time.perf_counter() - start) * 1000.0
+                
+                # Record health metrics
+                self._health[pid].record_success(latency_ms)
+                
+                # Include provider info in response
+                response.provider_id = pid
+                return response
             except Exception as e:
                 err_msg = str(e)
                 logger.warning(f"Provider {pid} failed: {err_msg}. Evaluating fallback.")
+                self._health[pid].record_failure(err_msg)
                 last_error = e
                 # Check for rate limit or timeout errors specifically
                 if "429" in err_msg or "timeout" in err_msg.lower() or "not found" in err_msg.lower():
