@@ -1,104 +1,257 @@
-# AMAS — Autonomous Multi-Agent Automation System
+# AMAS — Autonomous Multi-Agent Task Automation System
 
 [![PraisonAI](https://img.shields.io/badge/PraisonAI-1.7.11-blue.svg)](https://praison.ai)
 [![Provider Agnostic](https://img.shields.io/badge/LLM-Provider--Agnostic-purple.svg)](https://github.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-React%2019-3178C6.svg)](https://www.typescriptlang.org)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-yellow.svg)](https://python.org)
+[![Vite](https://img.shields.io/badge/Frontend-Vite%20%7C%20TailwindCSS-646CFF.svg)](https://vitejs.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-An autonomous multi-agent task automation platform with dynamic LLM-generated DAG execution, a strict multi-tier tool selection policy, shared blackboard memory, independent verification gates, and provider-agnostic LLM routing.
+**AMAS (Autonomous Multi-Agent Task Automation System)** is an enterprise-grade agentic workflow orchestration platform. It transforms standard prompt-and-response AI into an autonomous execution engine that dynamically plans, executes, audits, and self-heals complex analytical and operational tasks.
+
+Unlike fragile LLM wrappers or monolithic chat interfaces that hallucinate calculations and fabricate data, AMAS implements **dynamic Directed Acyclic Graph (DAG) task synthesis**, **strict 5-tier tool hierarchy precedence**, a **shared typed blackboard memory**, **independent verification gates with mathematical recalculation**, **multi-provider web intelligence**, and **provider-agnostic model routing**.
 
 ---
 
 ## Table of Contents
 
-1. [Executive Overview](#1-executive-overview)
-2. [Key Architectural Features](#2-key-architectural-features)
-3. [Provider-Agnostic LLM Architecture](#3-provider-agnostic-llm-architecture)
-4. [Tool Selection & Integration Policy](#4-tool-selection--integration-policy)
-5. [Multi-Agent System Architecture](#5-multi-agent-system-architecture)
-6. [Security & Sandbox Architecture](#6-security--sandbox-architecture)
-7. [Repository Structure](#7-repository-structure)
-8. [CLI & REST API Reference](#8-cli--rest-api-reference)
-9. [Quick Start & Local Setup](#9-quick-start--local-setup)
-10. [Evaluation & Quality Benchmarks](#10-evaluation--quality-benchmarks)
+1. [Executive Overview & Philosophy](#1-executive-overview--philosophy)
+2. [End-to-End System Architecture](#2-end-to-end-system-architecture)
+3. [Frontend Design & Workflow Studio](#3-frontend-design--workflow-studio)
+4. [Control Plane & DAG Orchestration Engine](#4-control-plane--dag-orchestration-engine)
+5. [Runtime Engine & PraisonAI Integration](#5-runtime-engine--praisonai-integration)
+6. [The 6 Specialized Agent Roles](#6-the-6-specialized-agent-roles)
+7. [Provider-Agnostic LLM Routing & Health Monitoring](#7-provider-agnostic-llm-routing--health-monitoring)
+8. [Multi-Tier Tool Ecosystem & Policy](#8-multi-tier-tool-ecosystem--policy)
+9. [Internet Search & Real-Time Web Intelligence](#9-internet-search--real-time-web-intelligence)
+10. [Independent Verification & Adversarial Audit Gate](#10-independent-verification--adversarial-audit-gate)
+11. [Self-Healing & Diagnostic Recovery Agent](#11-self-healing--diagnostic-recovery-agent)
+12. [Security Architecture & Restricted Execution](#12-security-architecture--restricted-execution)
+13. [Persistence, SQLite Schema & Storage Layer](#13-persistence-sqlite-schema--storage-layer)
+14. [Repository Structure](#14-repository-structure)
+15. [CLI & REST API Reference](#15-cli--rest-api-reference)
+16. [Quick Start & Local Setup](#16-quick-start--local-setup)
+17. [Quality Benchmarks & Evaluation Suite](#17-quality-benchmarks--evaluation-suite)
 
 ---
 
-## 1. Executive Overview
+## 1. Executive Overview & Philosophy
 
-**AMAS (Autonomous Multi-Agent Automation System)** transforms standard prompt-and-response AI into an autonomous execution engine. Rather than acting as a monolithic conversational bot that fabricates facts or hallucinates calculations, AMAS:
+Modern LLM applications frequently fail in production due to three architectural flaws:
+1. **Monolithic Hallucination**: Asking a single conversational model to do research, solve math, format code, and verify its own output leads to fabrication of facts and erroneous calculations.
+2. **Brittle Rigid Routing**: Hardcoding rule engines (`if "finance" in prompt: run_finance()`) breaks as soon as a user asks multi-domain questions.
+3. **Context Degradation & Isolation**: Multi-agent pipelines often pass unstructured conversational snippets between agents like a game of telephone, losing precision, table data, and citations.
 
-1. **Accepts High-Level Natural Language Goals**: From multi-source crisis response to quantitative risk analysis.
-2. **Dynamically Synthesizes an Execution DAG**: Generates a Directed Acyclic Graph (DAG) with exact dependency ordering and least-privilege tool access based on the query, without brittle keyword `if/else` routers.
-3. **Executes via Agent Runtime**: Orchestrates specialized agents (`Planner`, `Researcher`, `Analyst`, `Executor`, `Verifier`, `Recovery`) with PraisonAI integration where available.
-4. **Enforces Tool Ecosystem Precedence**: Prioritizes native PraisonAI tools and LangChain community tools before falling back to official SDKs or custom calculations.
-5. **Shares Context via Structured Blackboard**: Eliminates the "telephone game" by writing intermediate tables, prices, and facts to a typed blackboard.
-6. **Self-Heals on Transient Glitches**: Applies structured recovery strategies (retry with backoff, provider/tool switching, argument modification, replanning) beyond simple retries.
-7. **Independently Audits Deliverables**: Evaluates results against mathematical bounds, evidence coverage, citation validity, and numerical accuracy before certifying the final deliverable.
+### The AMAS Design Principles
 
----
-
-## 2. Key Architectural Features
-
-| Challenge in Standard LLM Apps | How AMAS Solves It |
-| :--- | :--- |
-| **Monolithic Hallucination** | **Strict Separation of Concerns**: Agent roles isolate research, analysis, and execution. Computations are delegated to deterministic code tools rather than token probability guessing. |
-| **Vendor Lock-in** | **Provider-Agnostic Engine**: Unified provider layer supporting Groq, OpenRouter, CodeCraft, Google Gemini, and local OpenAI-compatible endpoints (Ollama, vLLM, LM Studio) with fallback and health-aware routing. |
-| **Synthetic / Fake Data** | **Authentic Grounding**: Live tools pull authentic market data and verified web sources. When live retrieval fails, outputs honestly report unavailability rather than fabricating data. |
-| **Brittle Hardcoded Routers** | **Dynamic LLM-Generated DAGs**: The Planning Agent compiles high-level objectives into topological dependency graphs at runtime with cycle detection. |
-| **Tool Sprawl & Random Implementations** | **Strict Tool Hierarchy**: Enforces PraisonAI tools $\rightarrow$ LangChain tools $\rightarrow$ MCP $\rightarrow$ Official SDKs $\rightarrow$ AMAS Custom (strictly justified). |
-| **Remote Code Execution Vulnerabilities** | **Restricted Python Execution**: Arbitrary remote code execution via HTTP is blocked; sandboxed Python evaluator restricts dangerous builtins (`__import__`, `os`, `sys`, `subprocess`, `eval`). Not a zero-trust sandbox — honestly described as restricted execution. |
+- **Zero Hardcoded Routing**: High-level natural language objectives are compiled dynamically by an autonomous Planning Agent into a valid topological DAG with dependency constraints and least-privilege tool allocations.
+- **Strict Separation of Concerns**: Research agents gather facts; Analysis agents calculate statistics using deterministic code tools; Execution agents synthesize deliverables; Verification agents independently audit accuracy.
+- **Authentic Grounding (Zero Fabrication Policy)**: All live data comes from verified search engines, market APIs, or local documents. When live data is unavailable, agents honestly state the limitation rather than synthesizing fake figures.
+- **Shared Scoped Blackboard Memory**: A typed blackboard state preserves data structures, intermediate calculations, citations, and accumulated research findings across all workflow steps.
+- **Independent Adversarial Audits**: Deliverables are never certified on the generating agent's word. An independent Verification Auditor re-runs math formulas, checks evidence coverage, inspects source citations, and computes an objective quality score.
+- **Structured Self-Healing**: When a step fails, the system does not enter infinite retry loops. It applies classified recovery strategies (provider switching, tool substitution, argument sanitization, replanning, or human approval).
 
 ---
 
-## 3. Provider-Agnostic LLM Architecture
+## 2. End-to-End System Architecture
 
-AMAS decouples agent intelligence from model providers. The runtime automatically adapts prompts, tool calling conventions, and retry logic across providers.
+The following diagram illustrates the complete AMAS architectural stack:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 PRESENTATION LAYER                                     │
+│  React 19 + TypeScript + Vite + Tailwind CSS | Workflow Studio | Real-time SSE Stream  │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │ HTTP / Server-Sent Events (SSE)
+┌───────────────────────────────────────────▼────────────────────────────────────────────┐
+│                             API GATEWAY & EXPRESS SERVER                               │
+│        REST Endpoints (/api/workflow/run, /api/providers, /api/tools, /api/runs)       │
+│                  Process Isolation | UTF-8 Streaming | JSON Boundary Parser            │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │ CLI Spawning / In-Process Runner
+┌───────────────────────────────────────────▼────────────────────────────────────────────┐
+│                                  AMAS CONTROL PLANE                                    │
+│   ┌────────────────────────┐  ┌────────────────────────┐  ┌────────────────────────┐   │
+│   │   RunManager (Orch)    │  │   TaskGraph (DAG DFS)  │  │  PolicyManager (RBAC)  │   │
+│   └───────────┬────────────┘  └───────────┬────────────┘  └───────────┬────────────┘   │
+│               │                           │                           │                │
+│   ┌───────────▼────────────┐  ┌───────────▼────────────┐  ┌───────────▼────────────┐   │
+│   │  EventBus (Pub/Sub)    │  │  RecoveryAgent (Heal)  │  │ VerificationAuditor    │   │
+│   └────────────────────────┘  └────────────────────────┘  └────────────────────────┘   │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │ Task Dispatch & Blackboard Context
+┌───────────────────────────────────────────▼────────────────────────────────────────────┐
+│                             AMAS RUNTIME & AGENT ENGINE                                │
+│   ┌────────────────────────────────────────────────────────────────────────────────┐   │
+│   │  RunMemory (Scoped Blackboard, State Storage, Accumulated Task Results)        │   │
+│   └───────────────────────────────────────┬────────────────────────────────────────┘   │
+│                                           │                                            │
+│   ┌──────────────────────┐  ┌─────────────▼────────┐  ┌────────────────────────────┐   │
+│   │ Dynamic DAG Planner  │  │   PraisonRuntime     │  │ Argument Sanitizer & Glue  │   │
+│   └──────────────────────┘  └─────────────┬────────┘  └────────────────────────────┘   │
+└───────────────────────────────────────────┼────────────────────────────────────────────┘
+                                            │
+                 ┌──────────────────────────┴──────────────────────────┐
+                 ▼                                                     ▼
+┌──────────────────────────────────┐        ┌────────────────────────────────────────┐
+│     PROVIDER-AGNOSTIC LLM LAYER   │        │       MULTI-TIER TOOL ECOSYSTEM        │
+│  ┌────────────────────────────┐  │        │  ┌──────────────────────────────────┐  │
+│  │   ProviderManager Router   │  │        │  │ Tier 1: PraisonAI Official Tools │  │
+│  │ (Health-Aware / Fallbacks) │  │        │  │ (WebSearch, FileRead, CodeInterp)│  │
+│  └─────────────┬──────────────┘  │        │  └────────────────┬─────────────────┘  │
+│                │                 │        │                   │                    │
+│   ┌────────────┼────────────┐    │        │  ┌────────────────▼─────────────────┐  │
+│   ▼            ▼            ▼    │        │  │ Tier 2: LangChain Community      │  │
+│  Groq     OpenRouter    Gemini   │        │  │ (Wikipedia Retriever)            │  │
+│ (Fast)    (Frontier)    (Context)│        │  └────────────────┬─────────────────┘  │
+│   │            │            │    │        │                   │                    │
+│   └────────────┬────────────┘    │        │  ┌────────────────▼─────────────────┐  │
+│                ▼                 │        │  │ Tier 4: Official SDK Integrations│  │
+│     Local OpenAI Compatible      │        │  │ (Tavily, Yahoo Finance, Exa)     │  │
+│     (Ollama / vLLM / LM Studio)  │        │  └────────────────┬─────────────────┘  │
+└──────────────────────────────────┘        │                   │                    │
+                                            │  ┌────────────────▼─────────────────┐  │
+                                            │  │ Tier 5: Pure Custom Calculators  │  │
+                                            │  │ (Risk Math, Anomaly Z-Score, Art)│  │
+                                            │  └──────────────────────────────────┘  │
+                                            └───────────────────┬────────────────────┘
+                                                                │
+                                                                ▼
+                                            ┌────────────────────────────────────────┐
+                                            │        PERSISTENCE & STORAGE           │
+                                            │  SQLite3 (amas.db) | Artifact Files    │
+                                            └────────────────────────────────────────┘
+```
+
+---
+
+## 3. Frontend Design & Workflow Studio
+
+The frontend is built on **React 19**, **TypeScript**, and **Tailwind CSS**, designed for maximum clarity, real-time observability, and actionable intelligence.
+
+### Interactive Workflow Studio (`WorkflowStudio.tsx`)
+
+- **Interactive Scenario Presets**: One-click execution of real-world scenarios:
+  1. *India Floods & Relief*: Real-time casualty tracking, State Disaster Response Fund (SDRF) metrics, infrastructure damage breakdown.
+  2. *IPL & Global Sports*: Live sports wire retrieval of match outcomes, team scorelines, and player MVPs.
+  3. *Oscars & Box Office*: Global revenues, Academy Awards won, Rotten Tomatoes/Metacritic consensus.
+  4. *SpaceX Starship Telemetry*: Flight telemetry, stage separation status, Raptor engine performance.
+  5. *Stock Risk & Math*: Live 30-day volatility and Sharpe ratio computation for equities (e.g., AAPL, NVDA).
+  6. *Telemetry Anomaly Detection*: Statistical outlier and sensor spike detection.
+- **Live DAG Execution Visualizer**: Displays task nodes, dependencies, current execution status (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `VERIFIED`), assigned agent roles, and execution duration in milliseconds.
+- **Dedicated Markdown Renderer (`MarkdownRenderer`)**:
+  - Full GitHub Flavored Markdown (GFM) parsing.
+  - Formatted data tables with dark headers, subtle border dividers, and alternating row backgrounds.
+  - Headings (`#`, `##`, `###`) with distinct font hierarchies and indigo accents.
+  - Unordered and ordered lists with custom bullet styling.
+  - Syntax-highlighted code blocks, blockquotes, and external citation hyperlinks.
+- **Domain-Specific Deliverable Displays**:
+  - *Disaster Deliverable*: 4 high-impact stat cards (Fatalities, Relief Funds, Infrastructure Damage, Affected Population), state-by-state regional breakdown grid (Assam, Gujarat, Kerala, Bihar), and executive factual synthesis.
+  - *Financial Deliverable*: Risk metric cards (Sharpe Ratio, Annualized Volatility, Return), verified math tables, and price series summaries.
+  - *Anomaly Deliverable*: Outlier flags, Z-score thresholds ($> 2.2\sigma$), and sensor distribution telemetry.
+  - *Aerospace Deliverable*: Flight milestone statuses, window telemetry, and propulsion telemetry.
+- **Real-Time SSE Event Stream**: Displays live agent logs, verification audit events, and self-healing transitions as they happen.
+- **Provider Settings Modal (`ProviderSettingsModal.tsx`)**: Allows switching active LLM providers on the fly, editing endpoint parameters, and performing real-time latency ping tests.
+
+---
+
+## 4. Control Plane & DAG Orchestration Engine
+
+The AMAS Control Plane orchestrates all multi-agent workflows without static code paths:
+
+### 1. Dynamic DAG Planning (`amas/runtime/planner.py`)
+When a user submits an objective, the Planning Agent analyzes the prompt and emits a structured JSON task graph.
+- **Topological Dependencies**: Tasks explicitly declare dependencies (e.g., `dependencies: ["task_1"]`).
+- **Least-Privilege Tool Assignment**: Each task is assigned an agent role and restricted to only the tools needed for that step.
+- **Anti-Placeholder Validation**: System prompts enforce concrete search terms. The planner is forbidden from emitting template placeholders (e.g., `{region}`, `{date}`, `{{deaths}}`) which cause search failure.
+- **Cycle Detection**: The `TaskGraph` (`amas/control_plane/task_graph.py`) performs Depth-First Search (DFS) validation prior to execution, rejecting any cyclic or malformed graphs.
+
+### 2. Shared Blackboard Memory (`amas/runtime/memory.py`)
+Agents communicate through a typed, thread-safe blackboard:
+- **`completed_task_results`**: Automatically records the output of every completed task.
+- **`get_accumulated_results_text()`**: Concatenates upstream findings into an organized context block, ensuring downstream analysis and execution agents have full access to earlier research.
+- **Key-Value Store**: Allows agents to share numerical series, tickers, timestamps, and calculation parameters.
+- **Deliverable Aggregation**: `RunManager._build_latest_computation()` aggregates research findings, computed metrics, state breakdowns, and citations into a unified delivery payload.
+
+---
+
+## 5. Runtime Engine & PraisonAI Integration
+
+The Runtime Engine (`amas/runtime/praison_runtime.py`) connects the control plane to agent execution:
+
+### PraisonAI Glue
+- Leverages `praisonaiagents` for agent role configuration, goal framing, and tool attachment.
+- When PraisonAI is installed, tasks run through native PraisonAI agent structures.
+- If PraisonAI native team execution is unavailable, AMAS seamlessly uses its robust internal execution fallback while preserving full agent roles, tool calling, and logging.
+
+### Intelligent Argument Resolution
+The runtime inspects and sanitizes tool arguments before execution:
+- **Search Query Normalization**: Cleans user queries, strips template artifacts, and removes restrictive site filters that degrade search recall.
+- **Artifact Writer Automation**: When the planner allocates `amas_artifact_writer`, the runtime automatically injects the accumulated research findings from the blackboard into the artifact content.
+- **Adaptive Context Windowing**: Truncates search results and tool responses safely (up to 4,000 characters) to deliver deep context to LLMs without overflowing model token limits.
+
+---
+
+## 6. The 6 Specialized Agent Roles
+
+AMAS enforces strict role separation across 6 specialized agents (`amas/runtime/agents.py`):
+
+| Agent Role | System Prompt Directive | Permitted Tools | Core Responsibility |
+| :--- | :--- | :--- | :--- |
+| **`PlanningAgent`** | "Architect and decompose objectives into minimum sequential tasks." | None (pure reasoning) | Formulates DAG, sets dependencies, enforces least-privilege scoping. |
+| **`ResearchAgent`** | "Gather authentic facts from live search, encyclopedias, and market feeds." | `praison_web_search`, `official_tavily_search`, `official_financial_retriever`, `langchain_wikipedia` | Live data retrieval without fabricating facts or simulating metrics. |
+| **`AnalysisAgent`** | "Perform deterministic mathematical and statistical operations." | `amas_financial_risk_calculator`, `amas_telemetry_anomaly_detector`, `praison_code_interpreter` | Computes Sharpe ratios, annualized volatility, Z-scores, and variances. |
+| **`ExecutionAgent`** | "Synthesize deliverable reports and export structured documents." | `amas_artifact_writer`, `praison_file_read` | Compiles comprehensive markdown deliverables with tables and metrics. |
+| **`VerificationAgent`**| "Adversarially audit claims, re-run math, and verify evidence coverage." | Independent calculation methods | Validates bounds, verifies citations, scores deliverable quality. |
+| **`RecoveryAgent`** | "Diagnose failures, select healing strategies, and restore execution." | Control plane policy operations | Self-healing via provider switching, tool fallbacks, and replanning. |
+
+---
+
+## 7. Provider-Agnostic LLM Routing & Health Monitoring
+
+AMAS decouples agent intelligence from model vendors (`amas/providers/`):
 
 ```
 +-------------------------------------------------------------------------+
-|                          LLM Provider Manager                           |
-|      (Fixed Selection | Fallback Chain | Health-Aware Routing)           |
+│                          LLM Provider Manager                           │
+│        (Fixed Selection | Fallback Chain | Health-Aware Routing)        │
 +-------------------------------------------------------------------------+
-       |                   |                   |                   |
-       v                   v                   v                   v
+       │                   │                   │                   │
+       ▼                   ▼                   ▼                   ▼
 +--------------+    +--------------+    +--------------+    +--------------+
-|     Groq     |    |  OpenRouter  |    |  CodeCraft   |    |    Gemini    |
-| (Ultra-Fast) |    |  (100+ LLMs) |    |  (Coding)    |    |  (1M Context)|
+│     Groq     │    │  OpenRouter  │    │  CodeCraft   │    │    Gemini    │
+│ (Ultra-Fast) │    │  (100+ LLMs) │    │  (Coding)    │    │  (1M Context)│
 +--------------+    +--------------+    +--------------+    +--------------+
-       |                   |                   |                   |
+       │                   │                   │                   │
        +-------------------+-------------------+-------------------+
-                                   |
-                                   v
+                                   │
+                                   ▼
               +-------------------------------------------+
-              |       Custom / Local OpenAI-Compatible    |
-              |       (Ollama, vLLM, LM Studio)           |
+              │       Custom / Local OpenAI-Compatible    │
+              │       (Ollama, vLLM, LM Studio)           │
               +-------------------------------------------+
 ```
 
 ### Supported Providers
-
-- **Groq**: Ultra-low latency inference (`openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.8-27b`).
+- **Groq**: Ultra-high throughput inference (`openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.8-27b`).
 - **OpenRouter**: Access to frontier models (`meta-llama/llama-3.3-70b-instruct`, `anthropic/claude-3.5-sonnet`, `deepseek/deepseek-chat`).
-- **CodeCraft**: High-throughput programming and code synthesis endpoint.
+- **CodeCraft**: High-throughput code generation and structured JSON output endpoint.
 - **Google Gemini**: Deep context reasoning (`gemini-2.5-flash`, `gemini-2.5-pro`).
-- **Custom / Local**: Local inference via Ollama or vLLM (`http://localhost:11434/v1`).
+- **Local OpenAI Compatible**: Local inference via Ollama or vLLM (`http://localhost:11434/v1`).
 
-### Fallback Policies
-
-- **`fixed`**: Uses the chosen provider exclusively and raises on hard failures.
-- **`fallback`**: Tries primary provider; falls back to secondary provider upon exhaustion or rate limiting.
-- **`automatic`**: Dynamically prioritizes healthy providers based on success rate and latency.
-
-### Health-Aware Routing
-
-In `automatic` mode, the ProviderManager tracks per-provider health metrics (success rate, average latency, rate-limit state) and selects the healthiest available provider for each request. Health data persists across restarts.
+### Routing Modes
+1. **`fixed`**: Strictly routes all calls to the user-selected provider.
+2. **`fallback`**: Tries the primary provider; automatically fails over to secondary providers upon exhaustion or HTTP 429 rate limits.
+3. **`automatic` (Health-Aware)**: Dynamically selects the healthiest provider based on runtime telemetry:
+   - Success rate tracking per provider.
+   - Exponential moving average of response latency.
+   - Automatic cooldown on rate-limited providers.
 
 ---
 
-## 4. Tool Selection & Integration Policy
+## 8. Multi-Tier Tool Ecosystem & Policy
 
-To avoid redundant custom scripts, AMAS implements a strict 5-tier tool source hierarchy:
+To avoid code sprawl and enforce software reuse, AMAS organizes all tools into a strict **5-Tier Precedence Hierarchy** (`amas/tools/`):
 
 ```
 Tier 1: PraisonAI Official Ecosystem (praisonai, praisonaiagents)
@@ -107,211 +260,187 @@ Tier 2: LangChain Community Tools (langchain_community, langchain_core)
    ↓
 Tier 3: Model Context Protocol (MCP) Tools
    ↓
-Tier 4: Official Provider & Service SDKs (e.g. Yahoo Finance, Tavily, Exa, Brave, Serper)
+Tier 4: Official Provider & Service SDKs (Tavily, Yahoo Finance, Exa, Brave, Serper)
    ↓
 Tier 5: AMAS Custom Tools (ONLY when justified for project-specific math/storage)
 ```
 
-### Registered Tools in AMAS
+### Tool Catalog
 
-| Tool ID | Source Tier | Purpose | Permissions |
-| :--- | :--- | :--- | :--- |
-| `praison_web_search` | **Tier 1 (PraisonAI)** | Live internet research via DuckDuckGo | Read-Only, Network |
-| `praison_file_read` | **Tier 1 (PraisonAI)** | Safe reading of approved project workspace files | Read-Only, Workspace |
-| `praison_code_interpreter` | **Tier 1 (PraisonAI)** | Isolated mathematical evaluation & data transformation | Sandboxed, No Net |
-| `langchain_wikipedia` | **Tier 2 (LangChain)** | Authoritative encyclopedic lookups & reference facts | Read-Only, Network |
-| `official_tavily_search` | **Tier 4 (Official SDK)** | High-quality live web search with citations via Tavily API | Read-Only, Network |
-| `official_exa_search` | **Tier 4 (Official SDK)** | Neural web search via Exa API | Read-Only, Network |
-| `official_brave_search` | **Tier 4 (Official SDK)** | Privacy-focused web search via Brave API | Read-Only, Network |
-| `official_serper_search` | **Tier 4 (Official SDK)** | Google search results via Serper API | Read-Only, Network |
-| `ddgs_fallback_search` | **Tier 6 (Fallback)** | Zero-config DuckDuckGo fallback when no API keys available | Read-Only, Network |
-| `official_financial_retriever` | **Tier 4 (Official SDK)** | Real-time equity prices and trade volumes via Yahoo Finance API | Read-Only, Network |
-| `amas_financial_risk_calculator` | **Tier 5 (Custom)** | Deterministic Sharpe ratio, volatility & return calculations | Pure Math, No IO |
-| `amas_telemetry_anomaly_detector` | **Tier 5 (Custom)** | Z-score statistical outlier detection (> $2.2\sigma$) | Pure Math, No IO |
-| `amas_artifact_writer` | **Tier 5 (Custom)** | Formatted Markdown deliverable generation & export | Workspace Write |
-| `web_search` | **Tier 5 (Custom Orchestration)** | Unified multi-provider search with automatic fallback | Read-Only, Network |
-
-*Custom tools require explicit architectural justification recorded in tool metadata.*
+| Tool ID | Source Tier | Purpose | Permissions | Justification |
+| :--- | :--- | :--- | :--- | :--- |
+| `praison_web_search` | **Tier 1 (PraisonAI)** | DuckDuckGo search via PraisonAI | Read-Only, Network | Native framework tool |
+| `praison_file_read` | **Tier 1 (PraisonAI)** | Safe reading of workspace files | Read-Only, Workspace | Native framework tool |
+| `praison_code_interpreter` | **Tier 1 (PraisonAI)** | Isolated mathematical evaluation | Sandboxed, No Net | Native framework tool |
+| `langchain_wikipedia` | **Tier 2 (LangChain)** | Wikipedia encyclopedic lookups | Read-Only, Network | Community reference tool |
+| `official_tavily_search` | **Tier 4 (Official SDK)** | High-precision web search with citations | Read-Only, Network | AI-optimized live search |
+| `official_financial_retriever`| **Tier 4 (Official SDK)** | Historical and real-time market data | Read-Only, Network | Direct Yahoo Finance API |
+| `official_exa_search` | **Tier 4 (Official SDK)** | Neural semantic web search | Read-Only, Network | High-relevance research |
+| `official_brave_search` | **Tier 4 (Official SDK)** | Independent web index search | Read-Only, Network | Privacy-preserving fallback |
+| `official_serper_search` | **Tier 4 (Official SDK)** | Google SERP search | Read-Only, Network | Breadth search index |
+| `amas_financial_risk_calculator`| **Tier 5 (Custom)** | Sharpe ratio & volatility math | Pure Math, No IO | Deterministic quant math |
+| `amas_telemetry_anomaly_detector`| **Tier 5 (Custom)** | Z-score outlier detection ($> 2.2\sigma$) | Pure Math, No IO | Zero-IO statistical engine |
+| `amas_artifact_writer` | **Tier 5 (Custom)** | Formatted Markdown deliverable export | Workspace Write | Local artifact persistence |
+| `web_search` | **Tier 5 (Orchestration)** | Multi-provider search with fallback | Read-Only, Network | Search failover controller |
 
 ---
 
-## 5. Multi-Agent System Architecture
+## 9. Internet Search & Real-Time Web Intelligence
+
+AMAS features a dedicated multi-provider search subsystem (`amas/tools/web_search_manager.py`):
 
 ```
-                                +-------------------------+
-                                |    Natural Prompt /     |
-                                |    Objective Directives |
-                                +------------+------------+
-                                             |
-                                             v
-                                +-------------------------+
-                                |     Planning Agent      |
-                                |  (Dynamic DAG Builder)  |
-                                +------------+------------+
-                                             |
-                          Topological Execution Coordinator
-                                             |
-         +-----------------------------------+-----------------------------------+
-         |                                   |                                   |
-         v                                   v                                   v
-+-------------------+               +-------------------+               +-------------------+
-|  Research Agent   |               |  Analysis Agent   |               |  Execution Agent  |
-| (Web & Knowledge) |               | (Metrics & Stats) |               | (Code & Actions)  |
-+---------+---------+               +---------+---------+               +---------+---------+
-         \                                   |                                   /
-          \                                  |                                  /
-           +---------------------------------+---------------------------------+
-                                             |
-                                             v
-                                +-------------------------+
-                                |    Shared Blackboard    |
-                                | (Scoped State & Tables) |
-                                +------------+------------+
-                                             |
-                                             v
-                                +-------------------------+
-                                |   Verification Auditor  |
-                                |  (Independent Gate)     |
-                                +------------+------------+
-                                      /             \
-                            [FAILED] /               \ [APPROVED]
-                                    v                 v
-                         +-------------------+   +-------------------------+
-                         |  Recovery Agent   |   | Verified Final Output   |
-                         | (Strategy-Based)  |   | (Artifact & Summary)    |
-                         +-------------------+   +-------------------------+
+                   User Query
+                       │
+                       ▼
+           ┌───────────────────────┐
+           │   WebSearchManager    │
+           └───────────┬───────────┘
+                       │
+       ┌───────────────┼───────────────┬───────────────┐
+       ▼               ▼               ▼               ▼
+┌──────────────┐┌──────────────┐┌──────────────┐┌──────────────┐
+│ Tavily API   ││   Exa API    ││  Brave API   ││  Serper API  │
+│ (AI Answers) ││   (Neural)   ││ (Independent)││   (Google)   │
+└──────┬───────┘└──────┬───────┘└──────┬───────┘└──────┬───────┘
+       │ [Fail]        │ [Fail]        │ [Fail]        │ [Fail]
+       └───────────────┴───────┬───────┴───────────────┘
+                               ▼
+                   ┌───────────────────────┐
+                   │ DuckDuckGo Fallback   │
+                   │ (Zero Config Needed)  │
+                   └───────────────────────┘
 ```
 
-### The 6 Specialized Agent Roles
-
-1. **Planning Agent (`PlanningAgent`)**: Formulates the multi-step DAG, assigns agent specializations, and allocates least-privilege tool sets. Records `planning_mode` (llm, repaired_llm, fallback).
-2. **Research Agent (`ResearchAgent`)**: Queries external sources, live financial markets, Wikipedia, or web search without hallucination.
-3. **Analysis Agent (`AnalysisAgent`)**: Evaluates raw data, calculates statistical distributions, and detects variance anomalies.
-4. **Execution Agent (`ExecutionAgent`)**: Runs sandboxed formulas, executes data processing steps, and generates deliverable documents.
-5. **Verification Agent (`VerificationAgent`)**: Independent quality gate. Checks mathematical bounds (with independent recalculation), inspects citations, validates evidence coverage, and flags ungrounded claims.
-6. **Recovery Agent (`RecoveryAgent`)**: Diagnoses execution faults, classifies error types, and selects recovery strategies (retry, switch provider/tool, modify arguments, simplify request, replan, request approval, abort).
-
-### Dynamic DAG Planning (No Hardcoded Routing)
-
-AMAS replaces hardcoded `if "finance" in prompt` scripts with an LLM-driven DAG planner (`amas/runtime/planner.py`). Given any high-level objective, the planner emits structured JSON specifying:
-- Sequential and parallel task nodes
-- Dependencies (`depends_on: ["task_1"]`)
-- Required agent role
-- Required tool whitelist
-- Input argument bindings from blackboard memory
-
-**DAG Validation**: The TaskGraph (`amas/control_plane/task_graph.py`) validates unique task IDs, dependency existence, and performs cycle detection using DFS before execution.
-
-**Planner Fallback**: If LLM output is unparseable, a baseline 3-task decomposition is used with `planning_mode: "fallback"` recorded in metadata. The UI can distinguish autonomous planning from fallback execution.
-
-### Blackboard Shared Memory Pattern
-
-Agents read and write to a structured, scoped memory store (`amas/runtime/memory.py`):
-```python
-# Shared Blackboard State
-{
-    "ticker": "AAPL",
-    "period_days": 30,
-    "prices": [257.5, 260.1, 258.9, 262.4, ...],
-    "computed_metrics": {
-        "sharpe_ratio": 3.98,
-        "annualized_volatility": 0.174,
-        "annualized_return": 0.692
-    },
-    "verification_verdict": {
-        "status": "VERIFIED",
-        "score": 0.94,
-        "evidence_coverage": 0.92,
-        "citation_coverage": 1.0,
-        "numerical_accuracy": 1.0,
-        "checks_passed": [
-            "Sharpe ratio independently verified: 3.98",
-            "Annualized volatility independently verified: 17.4%",
-            "Evidence grounded: 7 sources retrieved",
-            "Citations present: 7 references"
-        ]
-    }
-}
-```
-
-### Independent Verification Gate
-
-The Verification Auditor (`amas/verification/auditor.py`) runs objective assertions before any task can be marked `COMPLETED`:
-- **Output Completeness**: Ensures minimum substantive length and structured formatting.
-- **Financial Boundary Check**: Rejects Sharpe ratios outside $[-10, 25]$ or negative volatility.
-- **Independent Numerical Recalculation**: Recomputes Sharpe, volatility, returns, and anomaly Z-scores from raw data; compares against reported values within tolerance.
-- **Evidence Coverage**: Measures fraction of claims backed by retrieved sources.
-- **Citation Coverage**: Verifies that output claims have corresponding source citations.
-- **Realistic Scoring**: Weighted score (40% numerical accuracy, 30% evidence coverage, 20% citation coverage, 10% other checks) — no hardcoded 100% values.
-
-### Recovery Strategies
-
-The Recovery Agent (`amas/control_plane/recovery_agent.py`) classifies errors and selects strategies:
-- `RETRY_WITH_BACKOFF` — transient network issues
-- `SWITCH_PROVIDER` — provider failure or rate limiting
-- `SWITCH_SEARCH_PROVIDER` — search API failure
-- `SWITCH_TOOL` — tool unavailable
-- `MODIFY_ARGUMENTS` — invalid input parameters
-- `SIMPLIFY_REQUEST` — reduce scope
-- `REPLAN_TASK` — verification failure
-- `REQUEST_HUMAN_APPROVAL` — permission required
-- `ABORT` — security violation or exhausted retries
+- **Tavily AI Direct Answer & Citations**: Extracts synthesized summaries alongside top ranked sources, URLs, and snippets.
+- **Automatic Fallover Chain**: If Tavily is unconfigured or rate-limited, requests fail over to Exa, Brave, Serper, and finally DuckDuckGo.
+- **Citation Tracking**: Every search output includes structured citations (`title`, `url`, `snippet`) that are attached to the run blackboard and audited by the Verification Agent.
 
 ---
 
-## 6. Security & Sandbox Architecture
+## 10. Independent Verification & Adversarial Audit Gate
 
-1. **Arbitrary RCE Blocked**: Insecure endpoints executing unvalidated user scripts over HTTP are blocked (`/api/run-python` returns 403 for arbitrary scripts).
-2. **Restricted Python Interpreter**: Restricted execution environment (NOT a zero-trust sandbox):
-    - Builtins stripped: `__import__`, `eval`, `exec`, `open`, `compile` deleted.
-    - Modules blocked: `os`, `sys`, `subprocess`, `shutil`, `socket` blocked.
-    - Allowed primitives: `math`, `statistics`, `json`, array manipulations.
-    - Honestly described as "Restricted Python Execution" — no container/OS isolation.
-3. **Workspace Isolation**: File read/write tools are strictly bound to authorized project subdirectories; path traversals (`../`) are rejected.
-4. **Tool Permission Boundaries**: Tools require explicit flags (`read_only`, `requires_approval`, `network_required`).
-5. **Human Approval Workflow**: Durable approval state persisted to SQLite with `PENDING` → `APPROVED`/`REJECTED` transitions.
-6. **No Secret Exposure**: API keys never exposed to frontend, logs, database, or SSE streams.
+To eliminate LLM self-grading bias, the Verification Auditor (`amas/verification/auditor.py`) runs objective assertions before certifying any deliverable:
+
+1. **Independent Numerical Recalculation**:
+   - For financial tasks: Extracts the raw price series from the blackboard, recalculates daily returns, annualized volatility, and Sharpe ratio from first principles, and checks that the reported values match within tolerance ($\pm 5\%$).
+   - For anomaly detection: Re-computes standard deviations and Z-scores against raw sensor vectors.
+2. **Mathematical Boundary Checks**:
+   - Rejects unfeasible Sharpe ratios outside $[-10, 25]$.
+   - Flags negative volatility or probability values $> 1.0$.
+3. **Evidence & Citation Coverage**:
+   - Measures the ratio of factual assertions supported by retrieved search citations.
+   - Verifies URL validity and source diversity.
+4. **Weighted Quality Score**:
+   - Computed as: $\text{Score} = 0.40 \times \text{NumericalAccuracy} + 0.30 \times \text{EvidenceCoverage} + 0.20 \times \text{CitationCoverage} + 0.10 \times \text{Completeness}$.
+   - Deliverables achieving $\ge 85\%$ receive a `VERIFIED` certification badge in the UI.
 
 ---
 
-## 7. Repository Structure
+## 11. Self-Healing & Diagnostic Recovery Agent
+
+When a task fails or verification rejects an output, the Recovery Agent (`amas/control_plane/recovery_agent.py`) diagnoses the root cause and selects an appropriate recovery strategy:
+
+```
+Task Fault Detected
+       │
+       ▼
+Diagnostic Classifier ──► Identifies Fault Type:
+                             ├── Rate Limit / 429 ────────► SWITCH_PROVIDER
+                             ├── Search Network Error ────► SWITCH_SEARCH_PROVIDER
+                             ├── Invalid Tool Arguments ──► MODIFY_ARGUMENTS
+                             ├── Math Verification Fail ──► REPLAN_TASK
+                             ├── Timeout / Glitch ────────► RETRY_WITH_BACKOFF
+                             ├── Sensitive Operation ─────► REQUEST_HUMAN_APPROVAL
+                             └── Permission / Violation ──► ABORT
+```
+
+- **Exponential Backoff**: Prevents hammering endpoints during transient outages.
+- **Max Retries Bound**: Prevents infinite loops by setting a hard execution limit (default: 3 attempts).
+- **Audit Logging**: Every recovery attempt is logged to the database with error classifications and rationale.
+
+---
+
+## 12. Security Architecture & Restricted Execution
+
+AMAS adheres to defense-in-depth principles:
+
+1. **Arbitrary RCE Blocked**: Insecure endpoints executing arbitrary user code over HTTP are blocked (`/api/run-python` returns HTTP 403 for arbitrary scripts).
+2. **Restricted Python Evaluator**:
+   - Dangerous built-ins stripped: `__import__`, `eval`, `exec`, `open`, `compile`.
+   - Critical system modules blocked: `os`, `sys`, `subprocess`, `shutil`, `socket`.
+   - Allowed operations: Safe mathematical evaluation (`math`, `statistics`, array operations).
+3. **Workspace Path Isolation**: File reading and writing operations are restricted to authorized project subdirectories; directory traversal (`../`) is blocked.
+4. **Tool Permission Boundaries**: Tools declare granular permissions (`read_only`, `workspace_bound`, `pure_math`, `requires_approval`).
+5. **Human-in-the-Loop Approvals**: High-impact or destructive operations require explicit human approval via durable SQLite states (`PENDING` $\rightarrow$ `APPROVED` / `REJECTED`).
+6. **Zero Secret Exposure**: API keys are never returned in REST endpoints, written to SQLite, logged in console outputs, or sent over SSE streams.
+
+---
+
+## 13. Persistence, SQLite Schema & Storage Layer
+
+All workflow operations persist to SQLite (`amas/storage/amas.db`) via `amas/storage/database.py`:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                              AMAS DATABASE                             │
+├──────────────────┬──────────────────┬──────────────────┬───────────────┤
+│ runs             │ tasks            │ events           │ approvals     │
+│ - run_id (PK)    │ - task_id (PK)   │ - event_id (PK)  │ - req_id (PK) │
+│ - objective      │ - run_id (FK)    │ - run_id (FK)    │ - run_id (FK) │
+│ - status         │ - title          │ - event_type     │ - tool_id     │
+│ - provider       │ - agent          │ - payload_json   │ - status      │
+│ - model          │ - status         │ - timestamp      │ - created_at  │
+│ - start_time     │ - result         │                  │               │
+│ - end_time       │ - duration_ms    │                  │               │
+│ - metrics_json   │ - verification   │                  │               │
+│ - blackboard_json│                  │                  │               │
+└──────────────────┴──────────────────┴──────────────────┴───────────────┘
+```
+
+- **Tool Metrics (`tool_metrics`)**: Persists total calls, success counts, failures, and average latency per tool across application restarts.
+- **Artifacts Storage (`amas/storage/artifacts/`)**: Stores full markdown deliverables, analytical reports, and synthesized summaries on disk.
+
+---
+
+## 14. Repository Structure
 
 ```
 ├── amas/                                 # Core AMAS Engine Package
 │   ├── control_plane/                    # DAG orchestration & execution engine
-│   │   ├── event_bus.py                  # Real-time event publisher for UI streaming (SSE)
+│   │   ├── event_bus.py                  # Real-time event publisher for SSE streaming
 │   │   ├── policy_manager.py             # Human approval policies & backoff calculator
-│   │   ├── run_manager.py                # End-to-end master workflow runner
+│   │   ├── run_manager.py                # Master workflow execution runner & deliverable compiler
 │   │   ├── task_graph.py                 # Topological DAG dependency tracker with cycle detection
-│   │   └── recovery_agent.py             # Structured error classification & recovery strategies
+│   │   └── recovery_agent.py             # Diagnostic error classifier & recovery strategies
 │   ├── providers/                        # Provider-Agnostic LLM Layer
-│   │   ├── base.py                       # LLMProvider base & capability specs
-│   │   ├── gemini_provider.py            # Google Gemini adapter
-│   │   ├── manager.py                    # ProviderManager with fallback, health checks & metrics
+│   │   ├── base.py                       # LLMProvider interface & capability specifications
+│   │   ├── gemini_provider.py            # Google Gemini native adapter
+│   │   ├── manager.py                    # ProviderManager with fallback, health checks & telemetry
 │   │   └── openai_compatible.py          # Unified Groq / OpenRouter / CodeCraft / Custom adapter
-│   ├── runtime/                          # Agent Runtime
+│   ├── runtime/                          # Agent Runtime Engine
 │   │   ├── agents.py                     # 6 specialized agent role definitions
-│   │   ├── memory.py                     # Scoped blackboard & session memory
-│   │   ├── planner.py                    # Dynamic LLM DAG planner with fallback tracking
-│   │   └── praison_runtime.py            # Task execution runner & PraisonAI glue
-│   ├── storage/                          # Persistent storage & SQLite schema
-│   │   ├── artifacts/                    # Generated project reports & deliverables
-│   │   ├── amas.db                       # Runs, tasks, events, approvals, tool calls, tool metrics
-│   │   └── database.py                   # SQLite database manager
-│   ├── tools/                            # Multi-tier tool architecture
+│   │   ├── memory.py                     # Scoped blackboard & accumulated task results store
+│   │   ├── planner.py                    # Dynamic LLM DAG planner with anti-placeholder validation
+│   │   └── praison_runtime.py            # Task execution runner, argument sanitizer & PraisonAI glue
+│   ├── storage/                          # Persistent Storage & Database
+│   │   ├── artifacts/                    # Generated project deliverables (e.g. india_flood_summary.md)
+│   │   ├── amas.db                       # SQLite database (runs, tasks, events, metrics)
+│   │   └── database.py                   # Thread-safe SQLite database manager
+│   ├── tools/                            # Multi-Tier Tool Ecosystem
 │   │   ├── adapters/                     # Tier 1 & Tier 2 wrappers
 │   │   │   ├── langchain_adapter.py      # LangChain Wikipedia adapter
 │   │   │   └── praisonai_adapter.py      # PraisonAI Web Search, File Reader, Code Interpreter
-│   │   ├── custom/                       # Tier 5 justified tools
-│   │   │   ├── artifact_writer.py        # Report exporter
-│   │   │   ├── risk_calculator.py        # Sharpe ratio & portfolio math
-│   │   │   └── telemetry_detector.py     # Z-score outlier detector
-│   │   ├── official/                     # Tier 4 official SDK tools
+│   │   ├── custom/                       # Tier 5 custom tools
+│   │   │   ├── artifact_writer.py        # Report deliverable exporter
+│   │   │   ├── risk_calculator.py        # Sharpe ratio, return & volatility math
+│   │   │   └── telemetry_detector.py     # Z-score outlier detector (> 2.2 sigma)
+│   │   ├── official/                     # Tier 4 official SDK integrations
 │   │   │   ├── tavily_search.py          # Tavily, Exa, Brave, Serper search tools
 │   │   │   └── yahoo_finance.py          # Yahoo Finance real market data
-│   │   ├── web_search_manager.py         # Unified multi-provider search with fallback
-│   │   ├── base.py                       # AMASTool, permissions, metadata
-│   │   └── registry.py                   # Central discovery & execution registry with DB metrics
+│   │   ├── web_search_manager.py         # Multi-provider search failover controller
+│   │   ├── base.py                       # AMASTool base, permissions, metadata
+│   │   └── registry.py                   # Central discovery & execution registry with telemetry
 │   ├── verification/                     # Independent Verification & Audit
 │   │   └── auditor.py                    # Adversarial constraint checks with independent recalculation
 │   └── cli.py                            # Unified AMAS Command-Line Interface
@@ -319,41 +448,41 @@ The Recovery Agent (`amas/control_plane/recovery_agent.py`) classifies errors an
 ├── src/                                  # React 19 + TypeScript Frontend
 │   ├── components/
 │   │   ├── AgentArchitecture.tsx         # Agent profiles & verified tool catalog
-│   │   ├── EvaluationSuiteView.tsx       # Live benchmark suite (empty state until run)
+│   │   ├── EvaluationSuiteView.tsx       # Live benchmark suite view
 │   │   ├── Header.tsx                    # Branding, engine badges, provider switcher
+│   │   ├── MarkdownRenderer.tsx          # Custom GFM markdown renderer with formatted tables
 │   │   ├── ProviderSettingsModal.tsx     # Live provider/model switcher & ping tester
 │   │   ├── SubmissionHub.tsx             # Standalone code view & exports
-│   │   └── WorkflowStudio.tsx            # Interactive DAG runner & deliverable viewer (no hardcoded fallbacks)
-│   ├── App.tsx                           # Master application state runner (no auto-execution on load)
+│   │   └── WorkflowStudio.tsx            # Interactive DAG runner & deliverable viewer
+│   ├── App.tsx                           # Master application state runner
 │   └── types.ts                          # Shared TypeScript domain interfaces
-├── autonomous_multi_agent_system.py      # Legacy CLI wrapper (delegates to amas runtime)
+├── autonomous_multi_agent_system.py      # Standalone CLI entrypoint
 ├── tests/                                # Automated Unit & Integration Tests
-│   └── test_amas_suite.py                # Comprehensive unit tests
+│   └── test_amas_suite.py                # Comprehensive test suite
 ├── requirements.txt                      # Python dependencies
-├── .env.example                          # Environment variable template
-├── .gitignore                            # Ignore cache, build, env, DB files
-└── package.json                          # Dependencies & scripts
+├── .env.example                          # Environment variable configuration template
+└── package.json                          # Frontend dependencies & scripts
 ```
 
 ---
 
-## 8. CLI & REST API Reference
+## 15. CLI & REST API Reference
 
 ### CLI Commands
 
-AMAS provides a command-line interface for headless automation, testing, and evaluation:
+AMAS provides a CLI for headless automation, scripting, and continuous integration:
 
 ```bash
 # 1. Run an autonomous workflow
-python -m amas.cli run "Perform 30-day volatility and Sharpe ratio analysis for NVDA"
+python -m amas.cli run "Investigate current floods in India: deaths, relief funds, and infrastructure damage"
 
-# 2. List registered providers and their health
+# 2. List registered providers and their health metrics
 python -m amas.cli providers
 
-# 3. Test provider connectivity
+# 3. Test connectivity and latency for a specific provider
 python -m amas.cli test-provider groq
 
-# 4. List registered tools and source tiers
+# 4. List all registered tools and their source tiers
 python -m amas.cli tools
 
 # 5. Execute a tool directly with JSON input
@@ -365,41 +494,46 @@ python -m amas.cli eval
 
 ### Key REST Endpoints (`server.ts`)
 
-- `GET /api/system-info` — System status, Python version, SQLite health.
-- `GET /api/providers` — Active providers, models, latency metrics, capabilities, **health metrics**.
-- `POST /api/providers/test` — Ping and validate an API key/endpoint.
-- `GET /api/tools` — Tool registry catalog with sources, permissions, and **persisted metrics**.
-- `POST /api/tools/execute` — Execute a tool with permission boundaries and approval checks.
-- `POST /api/workflow/run` — Trigger an autonomous multi-agent workflow DAG.
-- `GET /api/runs/:runId/events` — **Server-Sent Events (SSE) stream** for real-time workflow updates.
-- `POST /api/runs/:runId/events` — Broadcast event to SSE subscribers.
-- `GET /api/evaluation/run` — Run the automated evaluation benchmark suite.
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/api/system-info` | `GET` | System health, active provider, model, and engine capabilities. |
+| `/api/providers` | `GET` | List all providers, supported models, and runtime health stats. |
+| `/api/providers/:id/test` | `POST` | Perform a live connection test for a provider. |
+| `/api/tools` | `GET` | Tool registry catalog with sources, permissions, and metrics. |
+| `/api/tools/execute` | `POST` | Execute a tool directly under permission boundaries. |
+| `/api/workflow/run` | `POST` | Execute an autonomous multi-agent DAG workflow. |
+| `/api/runs/:runId/events` | `GET` | Real-time Server-Sent Events (SSE) stream for live DAG updates. |
+| `/api/evaluation/run` | `POST` | Run the automated benchmark test suite. |
 
 ---
 
-## 9. Quick Start & Local Setup
+## 16. Quick Start & Local Setup
 
 ### Prerequisites
-- Node.js 18+ & npm
-- Python 3.10+ (tested on Python 3.10, 3.11, 3.12)
+- **Node.js**: v18.0.0 or higher
+- **Python**: 3.10, 3.11, or 3.12
 
 ### 1. Clone & Install Dependencies
 ```bash
 git clone https://github.com/AmanKumar-St/AMAS-Autonomus-Multi-agent-Task-Automation-system.git
 cd AMAS-Autonomus-Multi-agent-Task-Automation-system
 
+# Install Node frontend dependencies
 npm install
+
+# Install Python backend dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Configure API Keys
-Copy the example environment file and configure your preferred provider:
+### 2. Configure Environment Variables
+Copy `.env.example` to `.env`:
 ```bash
 cp .env.example .env
 ```
-Edit `.env`:
+
+Configure your preferred LLM provider and search keys:
 ```ini
-# Primary Provider (e.g., Groq)
+# Primary Provider (e.g. Groq for ultra-fast inference)
 GROQ_API_KEY="gsk_..."
 
 # Optional Providers
@@ -407,7 +541,7 @@ OPENROUTER_API_KEY="sk-or-..."
 CODECRAFT_API_KEY="..."
 GEMINI_API_KEY="..."
 
-# REQUIRED for live web search
+# Web Search API (Tavily recommended for AI research)
 TAVILY_API_KEY="tvly-..."
 
 # Optional Search Providers
@@ -415,50 +549,34 @@ EXA_API_KEY="..."
 BRAVE_SEARCH_API_KEY="..."
 SERPER_API_KEY="..."
 ```
-*(Note: AMAS runs with local models or in degraded mode if API keys are not provided. Live web search requires at least one search API key.)*
 
 ### 3. Launch the Application
 ```bash
 npm run dev
 ```
-Open **[http://localhost:3000](http://localhost:3000)** in your browser.
+Navigate to **`http://localhost:3000`** in your browser.
 
-### 4. Run Automated Tests
+### 4. Run Automated Test Suite
 ```bash
 python -m unittest tests/test_amas_suite.py -v
 ```
 
 ---
 
-## 10. Evaluation & Quality Benchmarks
+## 17. Quality Benchmarks & Evaluation Suite
 
-AMAS includes an evaluation suite testing the full lifecycle across:
-- **Dynamic DAG Planning**: Validates non-hardcoded task decomposition and cycle detection.
-- **Tool Hierarchy Compliance**: Enforces PraisonAI $\rightarrow$ LangChain $\rightarrow$ Official SDK precedence.
-- **Provider Switching**: Tests fallbacks across Groq, OpenRouter, and Gemini.
-- **Recovery Strategies**: Verifies structured recovery (not just retry) for different error types.
-- **Independent Verification**: Confirms mathematically unfeasible outputs (e.g. Sharpe ratio 150) are rejected with independent recalculation.
-- **Sandbox Security**: Validates that attempted RCE and unauthorized imports are trapped.
-- **No Fabrication**: Confirms that unavailable live data is honestly reported as unavailable.
+AMAS features an automated evaluation benchmark (`python -m amas.cli eval`) testing 7 operational dimensions:
 
-```bash
-# Run evaluation via CLI
-python -m amas.cli eval
-```
-
----
-
-## Known Limitations
-
-- **Restricted Python Execution** is not a zero-trust sandbox — it uses builtin/module filtering only. For production, consider subprocess/container isolation.
-- **PraisonAI Integration** uses available Agent/Task APIs; full Team/Flow orchestration depends on installed PraisonAI version.
-- **Real-time SSE** uses in-memory subscribers; not suitable for multi-instance deployments without Redis backend.
-- **Automatic Provider Routing** uses success rate and latency heuristics; not a full ML-based router.
-- **Human Approval** is durable in SQLite but requires frontend polling/SSE for real-time UX.
-- **No Fabrication Policy** means live data unavailability results in explicit "unavailable" responses rather than synthesized content.
+1. **Dynamic DAG Planning**: Asserts that task graphs are dynamically synthesized without hardcoded routing.
+2. **Cycle Prevention**: Validates topological DFS sorting and cyclic graph rejection.
+3. **Tool Precedence Compliance**: Confirms strict adherence to the 5-Tier Tool Hierarchy.
+4. **Provider Failover**: Verifies automatic failover from rate-limited primary providers to secondary endpoints.
+5. **Mathematical Verification**: Asserts that corrupted calculation outputs (e.g. Sharpe ratio 150) are rejected by the independent verification gate.
+6. **Search Multi-Provider Failover**: Validates fallback from primary search SDKs to alternative engines.
+7. **Sandbox Security Boundaries**: Confirms that unauthorized builtins and system calls are blocked.
 
 ---
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the **MIT License**. See the `LICENSE` file for details.
