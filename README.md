@@ -9,6 +9,8 @@
 
 **AMAS (Autonomous Multi-Agent Task Automation System)** is an enterprise-grade agentic workflow orchestration platform. It transforms standard prompt-and-response AI into an autonomous execution engine that dynamically plans, executes, audits, and self-heals complex analytical and operational tasks.
 
+Live deployment: https://amas-autonomus-multi-agent-task-automation-syste-production.up.railway.app/
+
 Unlike fragile LLM wrappers or monolithic chat interfaces that hallucinate calculations and fabricate data, AMAS implements **dynamic Directed Acyclic Graph (DAG) task synthesis**, **strict 5-tier tool hierarchy precedence**, a **shared typed blackboard memory**, **independent verification gates with mathematical recalculation**, **multi-provider web intelligence**, and **provider-agnostic model routing**.
 
 ---
@@ -32,6 +34,7 @@ Unlike fragile LLM wrappers or monolithic chat interfaces that hallucinate calcu
 15. [CLI & REST API Reference](#15-cli--rest-api-reference)
 16. [Quick Start & Local Setup](#16-quick-start--local-setup)
 17. [Quality Benchmarks & Evaluation Suite](#17-quality-benchmarks--evaluation-suite)
+18. [Open Source Citations & Acknowledgements](#18-open-source-citations--acknowledgements)
 
 ---
 
@@ -576,6 +579,13 @@ AMAS features an automated evaluation benchmark (`python -m amas.cli eval`) test
 7. **Sandbox Security Boundaries**: Confirms that unauthorized builtins and system calls are blocked.
 
 ---
+
+## 18. Open Source Citations & Acknowledgements
+
+AMAS uses and integrates concepts and tooling from the open-source PraisonAI project. This repository acknowledges PraisonAI for its agent orchestration patterns, tool integration ideas, and runtime approach that informed parts of the AMAS execution stack.
+
+- PraisonAI: https://praison.ai
+- PraisonAI GitHub: https://github.com/praisonai
 
 ## License
 
