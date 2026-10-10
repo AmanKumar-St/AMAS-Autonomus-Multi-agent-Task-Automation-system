@@ -18,8 +18,9 @@ yfinance>=0.2.40
 # Web Search Providers
 tavily-python>=0.3.0
 exa-py>=1.0.0
-brave-search>=0.1.0
-serper-dev>=0.1.0
+# brave-search>=0.1.0
+
+# serper-dev>=0.1.0
 duckduckgo-search>=6.0.0
 
 # Utilities
