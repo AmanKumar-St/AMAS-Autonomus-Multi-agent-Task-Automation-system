@@ -122,7 +122,7 @@ class TaskGraph:
         if task_id in self._nodes:
             self._nodes[task_id]["status"] = TaskStatus.IN_PROGRESS.value
 
-    def mark_completed(self, task_id: str, result: Any, duration_ms: float):
+    def mark_completed(self, task_id: str, result: Any, duration_ms: float = 0.0):
         if task_id in self._nodes:
             self._nodes[task_id]["status"] = TaskStatus.COMPLETED.value
             self._nodes[task_id]["result"] = result
